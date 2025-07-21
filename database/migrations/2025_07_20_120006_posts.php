@@ -23,9 +23,11 @@ return new class extends Migration
             $table->timestamp('created_at')->useCurrent();
 
             $table->foreign('author_id')->references('user_id')->on('users');
-            $table->foreign('shared_post_id')->references('post_id')->on('posts');
             $table->foreign('group_id')->references('group_id')->on('groups');
         });
+        Schema::table('posts', function (Blueprint $table) {
+        $table->foreign('shared_post_id')->references('post_id')->on('posts');
+    });
     }
 
     /**

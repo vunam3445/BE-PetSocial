@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-                Schema::create('messages', function (Blueprint $table) {
+        Schema::create('messages', function (Blueprint $table) {
             $table->uuid('message_id')->primary();
             $table->uuid('conversation_id');
             $table->uuid('sender_id');
@@ -24,10 +24,11 @@ return new class extends Migration
 
             $table->foreign('conversation_id')->references('conversation_id')->on('conversations')->onDelete('cascade');
             $table->foreign('sender_id')->references('user_id')->on('users');
+        });
+        Schema::table('messages', function (Blueprint $table) {
             $table->foreign('reply_to_id')->references('message_id')->on('messages');
         });
     }
-
     /**
      * Reverse the migrations.
      */
