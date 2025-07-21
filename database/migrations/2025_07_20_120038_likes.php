@@ -14,7 +14,7 @@ return new class extends Migration
                 Schema::create('likes', function (Blueprint $table) {
             $table->uuid('user_id');
             $table->uuid('post_id');
-            $table->timestamp('liked_at')->useCurrent();
+            $table->timestamps();
 
             $table->primary(['user_id', 'post_id']);
             $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');

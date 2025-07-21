@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('follows', function (Blueprint $table) {
             $table->uuid('follower_id');
             $table->uuid('followed_id');
-            $table->timestamp('followed_at')->useCurrent();
+            $table->timestamps();
 
             $table->primary(['follower_id', 'followed_id']);
             $table->foreign('follower_id')->references('user_id')->on('users')->onDelete('cascade');

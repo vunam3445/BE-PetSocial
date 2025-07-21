@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('type', 50);
             $table->text('content');
             $table->text('target_url');
-            $table->timestamp('created_at')->useCurrent();
+            $table->timestamps();
 
             $table->foreign('sender_id')->references('user_id')->on('users');
         });

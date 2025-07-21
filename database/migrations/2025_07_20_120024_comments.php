@@ -16,7 +16,7 @@ return new class extends Migration
             $table->uuid('post_id');
             $table->uuid('user_id');
             $table->text('content');
-            $table->timestamp('created_at')->useCurrent();
+            $table->timestamps();
 
             $table->foreign('post_id')->references('post_id')->on('posts')->onDelete('cascade');
             $table->foreign('user_id')->references('user_id')->on('users');

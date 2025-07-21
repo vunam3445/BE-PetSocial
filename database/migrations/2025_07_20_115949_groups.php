@@ -18,7 +18,7 @@ return new class extends Migration
             $table->text('avatar_url')->nullable();
             $table->text('cover_url')->nullable();
             $table->uuid('created_by');
-            $table->timestamp('created_at')->useCurrent();
+            $table->timestamps();
 
             $table->foreign('created_by')->references('user_id')->on('users');
         });

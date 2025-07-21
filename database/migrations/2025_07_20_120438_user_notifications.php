@@ -15,7 +15,7 @@ return new class extends Migration
             $table->uuid('user_id');
             $table->uuid('notification_id');
             $table->boolean('is_read')->default(false);
-            $table->timestamp('read_at')->nullable();
+            $table->timestamps();
 
             $table->primary(['user_id', 'notification_id']);
             $table->foreign('user_id')->references('user_id')->on('users');

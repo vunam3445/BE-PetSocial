@@ -18,9 +18,8 @@ return new class extends Migration
             $table->text('content')->nullable();
             $table->text('media_url')->nullable();
             $table->string('message_type', 20)->default('text');
-            $table->timestamp('created_at')->useCurrent();
             $table->uuid('reply_to_id')->nullable();
-            $table->timestamp('deleted_at')->nullable();
+            $table->timestamps();
 
             $table->foreign('conversation_id')->references('conversation_id')->on('conversations')->onDelete('cascade');
             $table->foreign('sender_id')->references('user_id')->on('users');
