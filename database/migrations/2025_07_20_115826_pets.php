@@ -20,7 +20,7 @@ return new class extends Migration
             $table->string('gender', 10);
             $table->date('birthday');
             $table->text('avatar_url')->nullable();
-            $table->timestamp('created_at')->useCurrent();
+            $table->timestamps();
 
             $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
         });

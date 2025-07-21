@@ -15,7 +15,7 @@ return new class extends Migration
             $table->uuid('conversation_id')->primary();
             $table->string('name')->nullable();
             $table->boolean('is_group')->default(false);
-            $table->timestamp('created_at')->useCurrent();
+            $table->timestamps();
         });
     }
 

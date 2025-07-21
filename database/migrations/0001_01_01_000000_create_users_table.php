@@ -19,7 +19,7 @@ return new class extends Migration
             $table->text('avatar_url')->nullable();
             $table->text('cover_url')->nullable();
             $table->text('bio')->nullable();
-            $table->timestamp('created_at')->useCurrent();
+            $table->timestamps();
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

@@ -14,7 +14,7 @@ return new class extends Migration
                 Schema::create('conversation_participants', function (Blueprint $table) {
             $table->uuid('conversation_id');
             $table->uuid('user_id');
-            $table->timestamp('joined_at')->useCurrent();
+            $table->timestamps();
             $table->string('role', 20)->default('member');
 
             $table->primary(['conversation_id', 'user_id']);

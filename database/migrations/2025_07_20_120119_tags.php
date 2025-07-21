@@ -15,7 +15,7 @@ return new class extends Migration
             $table->uuid('tag_id')->primary();
             $table->string('name', 100)->unique();
             $table->text('description')->nullable();
-            $table->timestamp('created_at')->useCurrent();
+            $table->timestamps();
         });
     }
 

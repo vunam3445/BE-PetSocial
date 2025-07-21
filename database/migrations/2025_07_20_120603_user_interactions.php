@@ -17,7 +17,7 @@ return new class extends Migration
             $table->uuid('post_id');
             $table->string('action_type', 20);
             $table->text('metadata')->nullable();
-            $table->timestamp('created_at')->useCurrent();
+            $table->timestamps();
 
             $table->foreign('user_id')->references('user_id')->on('users');
             $table->foreign('post_id')->references('post_id')->on('posts');

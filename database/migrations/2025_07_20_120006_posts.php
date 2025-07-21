@@ -20,7 +20,7 @@ return new class extends Migration
             $table->string('visibility', 15)->default('public');
             $table->uuid('shared_post_id')->nullable();
             $table->uuid('group_id')->nullable();
-            $table->timestamp('created_at')->useCurrent();
+            $table->timestamps();
 
             $table->foreign('author_id')->references('user_id')->on('users');
             $table->foreign('group_id')->references('group_id')->on('groups');
