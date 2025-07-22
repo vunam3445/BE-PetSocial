@@ -14,11 +14,11 @@ class AuthService
 
     public function login(array $data)
     {
-        
+        return $this->authRepository->login($data);
     }
 
     public function logout(): void
     {
-        
+        $this->authRepository->logout();
     }
 }
