@@ -3,6 +3,7 @@
 namespace App\Repositories\AuthRepository;
 
 use App\Models\User;
+use Tymon\JWTAuth\Facades\JWTAuth;
 
 class AuthRepository implements AuthInterface
 {
@@ -21,11 +22,15 @@ class AuthRepository implements AuthInterface
 
     public function login(array $data)
     {
-        // Logic for user login
+        if (!$token=JWTAuth::attempt($data)) {
+            return null;
+        }
+
+        return $token; 
     }
 
     public function logout(): void
     {
-        // Logic for user logout
+        JWTAuth::invalidate(JWTAuth::getToken());
     }
 }
