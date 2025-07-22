@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Services\ProfileService;
+use Illuminate\Container\Attributes\Log;
+use Illuminate\Support\Facades\Auth;
+
 class ProfileController extends Controller
 {
     public function __construct(private ProfileService $profileService)

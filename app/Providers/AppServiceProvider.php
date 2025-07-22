@@ -7,6 +7,8 @@ use App\Repositories\AuthRepository\AuthInterface;
 use App\Repositories\AuthRepository\AuthRepository;
 use App\Repositories\ProfileRepository\ProfileInterface;
 use App\Repositories\ProfileRepository\ProfileRepository;
+use App\Repositories\PetRepository\PetInterface;
+use App\Repositories\PetRepository\PetRepository;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -17,6 +19,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(AuthInterface::class, AuthRepository::class);
         $this->app->bind(ProfileInterface::class, ProfileRepository::class);
+        $this->app->bind(PetInterface::class, PetRepository::class);
     }
 
     /**
