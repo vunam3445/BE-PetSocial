@@ -17,6 +17,7 @@ use App\Http\Controllers\AuthController;
 Route::prefix('auth')->group(function () {
     Route::post('register', [AuthController::class, 'register']);     // POST /api/auth/register
     Route::post('login',    [AuthController::class, 'login']);        // POST /api/auth/login
+    Route::post('refresh', [AuthController::class, 'refresh']);
 
     Route::middleware('auth:api')->group(function () {
         Route::get('me',    [AuthController::class, 'me']);           // GET  /api/auth/me
