@@ -14,7 +14,7 @@ class ProfileRepository implements ProfileInterface
         return true;
     }
 
-    public function getProfile(string $userId): array
+    public function getProfile(?string $userId): array
     {
         $user = User::find($userId);
         if (!$user) {

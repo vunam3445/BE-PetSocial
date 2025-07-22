@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ProfileController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -20,7 +21,12 @@ Route::prefix('auth')->group(function () {
     Route::post('refresh', [AuthController::class, 'refresh']);
 
     Route::middleware('auth:api')->group(function () {
-        Route::get('me',    [AuthController::class, 'me']);           // GET  /api/auth/me
         Route::post('logout',[AuthController::class, 'logout']);      // POST /api/auth/logout
     });
+});
+
+//Profile Routes
+
+Route::middleware('auth:api')->group(function () {
+    Route::get('/profile/{id?}', [ProfileController::class, 'show']);
 });

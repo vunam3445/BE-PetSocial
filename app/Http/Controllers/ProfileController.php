@@ -30,9 +30,13 @@ class ProfileController extends Controller
     /**
      * Get the user's profile.
      */
-    public function show(Request $request)
+    public function show(?string $userId = null)
     {
-        // Logic to get user profile
+        $user = $this->profileService->getProfile($userId);
+        if (empty($user)) {
+            return response()->json(['message' => 'Profile not found.'], 404);
+        }
+        return response()->json($user);
     }
 
     /**
