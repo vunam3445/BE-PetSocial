@@ -27,7 +27,7 @@ class CreatePetRequest extends FormRequest
             'breed' => 'required|string|max:100',
             'gender' => 'required|in:male,female,unknown', // hoặc: 'nam,nữ'
             'birthday' => 'required|date|before:today',
-            'avatar_url' => 'nullable|url',
+            'avatar_url' => 'required|nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ];
     }
     public function messages(): array
@@ -38,7 +38,7 @@ class CreatePetRequest extends FormRequest
             'breed.required' => 'Pet breed is required',
             'gender.required' => 'Pet gender is required',
             'birthday.required' => 'Pet birthday is required',
-            'avatar_url.url' => 'Pet avatar must be a valid URL',
+            'avatar_url.image' => 'Avatar must be an image file',
         ];
     }
 }

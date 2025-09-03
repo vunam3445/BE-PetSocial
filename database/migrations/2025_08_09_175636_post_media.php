@@ -11,15 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-              Schema::create('post_tags', function (Blueprint $table) {
+        Schema::create('post_media', function (Blueprint $table) {
+            $table->uuid('media_id')->primary();
             $table->uuid('post_id');
-            $table->uuid('tag_id');
+            $table->string('media_url'); // đường dẫn file
+            $table->string('media_type', 10); // image | video
+            $table->integer('order')->default(0); // để sắp xếp hiển thị
+            $table->timestamps();
 
-            $table->primary(['post_id', 'tag_id']);
             $table->foreign('post_id')->references('post_id')->on('posts')->onDelete('cascade');
-            $table->foreign('tag_id')->references('tag_id')->on('tags')->onDelete('cascade');
-            $table->timestamps(); // để theo dõi khi nào gắn tag vào post
-
         });
     }
 
@@ -28,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('post_tags');
+        //
     }
 };

@@ -11,12 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-         Schema::create('posts', function (Blueprint $table) {
+        Schema::create('posts', function (Blueprint $table) {
             $table->uuid('post_id')->primary();
             $table->uuid('author_id');
             $table->text('caption')->nullable();
-            $table->text('media_url')->nullable();
-            $table->string('media_type', 10)->nullable();
             $table->string('visibility', 15)->default('public');
             $table->uuid('shared_post_id')->nullable();
             $table->uuid('group_id')->nullable();
@@ -26,8 +24,8 @@ return new class extends Migration
             $table->foreign('group_id')->references('group_id')->on('groups');
         });
         Schema::table('posts', function (Blueprint $table) {
-        $table->foreign('shared_post_id')->references('post_id')->on('posts');
-    });
+            $table->foreign('shared_post_id')->references('post_id')->on('posts');
+        });
     }
 
     /**

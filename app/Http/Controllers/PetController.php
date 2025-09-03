@@ -8,6 +8,8 @@ use App\Services\PetService;
 use App\Http\Requests\CreatePetRequest;
 use App\Http\Requests\UpdatePetRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+
 
 class PetController extends Controller
 {
@@ -36,12 +38,13 @@ class PetController extends Controller
         if (empty($pet)) {
             return response()->json(['message' => 'Pet not found'], 404);
         }
-        return response()->json($pet);
+        return response()->json($pet); 
     }
 
     public function update(string $petId, UpdatePetRequest $request)
     {
         $data = $request->validated();
+        Log::info('kdaasa',$request->All());
         $result = $this->petService->updatePet($petId, $data);
         if ($result) {
             return response()->json(['message' => 'Pet updated successfully'], 200);
@@ -57,7 +60,7 @@ class PetController extends Controller
         }
         return response()->json(['message' => 'Failed to delete pet'], 400);
     }
-    public function getAllPetsByUser(?string $userId = null)
+    public function getAllPetsByUser(string $userId)
     {
         $pets = $this->petService->getAllPetsByUser($userId);
         return response()->json($pets);

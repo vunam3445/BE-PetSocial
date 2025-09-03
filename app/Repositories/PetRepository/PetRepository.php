@@ -42,7 +42,7 @@ class PetRepository implements PetInterface
         return $pet->delete();
     }
 
-    public function getAllPetsByUser(?string $userId): array
+    public function getAllPetsByUser(string $userId): array
     {
         $pets = Pet::where('user_id', $userId)->get();
         return $pets->toArray();

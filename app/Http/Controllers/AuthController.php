@@ -19,6 +19,7 @@ class AuthController extends Controller
     public function register(AuthRequest $request)
     {
         $data = $request->validated();
+        Log::info('Registering user with data: ', $data);
         $user = $this->authService->register($data);
         if ($user) {
             return response()->json([
@@ -61,7 +62,11 @@ class AuthController extends Controller
     public function refresh(Request $request)
     {
         try {
-            $newToken = \Tymon\JWTAuth\Facades\JWTAuth::refresh(); // Tự lấy token từ header
+              $token = \Tymon\JWTAuth\Facades\JWTAuth::getToken();
+        if (!$token) {
+            return response()->json(['message' => 'Token not found in request']);
+        }
+            $newToken = \Tymon\JWTAuth\Facades\JWTAuth::refresh($token); // Tự lấy token từ header
             return response()->json([
                 'access_token' => $newToken,
                 'token_type' => 'bearer',

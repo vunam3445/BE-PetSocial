@@ -10,5 +10,5 @@ interface PetInterface
     public function updatePet(string $petId, array $data): bool;
 
     public function deletePet(string $petId): bool;
-    public function getAllPetsByUser(?string $userId): array; // Optional: If you want to retrieve all pets
+    public function getAllPetsByUser(string $userId): array; // Optional: If you want to retrieve all pets
 }

@@ -17,7 +17,7 @@ class User extends Authenticatable implements JWTSubject
     protected $primaryKey = 'user_id';
     public $incrementing = false;
     protected $keyType = 'string';
-    protected $fillable = ['name', 'email', 'password', 'avatar_url', 'cover_url', 'bio'];
+    protected $fillable = ['name', 'email', 'password', 'avatar_url', 'cover_url', 'bio','date_of_birth','gender'];
 
 
     /**
@@ -53,7 +53,9 @@ class User extends Authenticatable implements JWTSubject
     {
         return [];
     }
-
+/**
+ * @return \Illuminate\Database\Eloquent\Relations\HasMany
+ */
     public function pets()             { return $this->hasMany(Pet::class, 'user_id'); }
     public function posts()            { return $this->hasMany(Post::class, 'author_id'); }
     public function comments()         { return $this->hasMany(Comment::class, 'user_id'); }

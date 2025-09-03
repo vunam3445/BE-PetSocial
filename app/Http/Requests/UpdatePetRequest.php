@@ -27,7 +27,7 @@ class UpdatePetRequest extends FormRequest
         'breed' => 'sometimes|string|max:100',
         'gender' => 'sometimes|in:male,female,unknown',
         'birthday' => 'sometimes|date|before:today',
-        'avatar_url' => 'nullable|url',
+        'avatar_url' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ];
     }
     public function messages(): array
@@ -39,10 +39,8 @@ class UpdatePetRequest extends FormRequest
             'gender.in' => 'Pet gender must be one of the following: male, female, unknown',
             'birthday.date' => 'Pet birthday must be a valid date',
             'birthday.before' => 'Pet birthday must be before today',
-            'avatar_url.url' => 'Pet avatar URL must be a valid URL',
+            'avatar_url.image' => 'Avatar must be an image file',
         ];
-    
-    
     }
 
 }
