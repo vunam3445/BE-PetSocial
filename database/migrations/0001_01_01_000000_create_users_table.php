@@ -21,8 +21,7 @@ return new class extends Migration
             $table->text('cover_url')->nullable();
             $table->text('bio')->nullable();
             $table->date('date_of_birth')->nullable();   // ngày sinh
-            $table->enum('gender', ['male', 'female', 'other'])->nullable(); // giới tính
-
+            $table->enum('gender', ['male', 'female', 'unknown'])->default('unknown');
             $table->timestamps();
         });
 

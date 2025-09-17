@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use App\Services\AuthService;
 use App\Http\Requests\AuthRequest;
 use Illuminate\Support\Facades\Log;
+use Tymon\JWTAuth\Facades\JWTAuth;
+
 
 class AuthController extends Controller
 {
@@ -19,6 +21,7 @@ class AuthController extends Controller
     public function register(AuthRequest $request)
     {
         $data = $request->validated();
+        Log::info('Registering user with data: ', $data);
         $user = $this->authService->register($data);
         if ($user) {
             return response()->json([
@@ -34,14 +37,17 @@ class AuthController extends Controller
     public function login(AuthLoginRequest $request)
     {
         $data = $request->validated();
-        $token = $this->authService->login($data);
-        if ($token) {
+        $result = $this->authService->login($data); // bây giờ $result chứa cả token + user
+
+        if ($result) {
             return response()->json([
-                'access_token' => $token,
-                'token_type' => 'bearer',
-                'expires_in' => \Tymon\JWTAuth\Facades\JWTAuth::factory()->getTTL() * 60
+                'access_token' => $result['token'],
+                'token_type'   => 'bearer',
+                'expires_in'   => JWTAuth::factory()->getTTL() * 60,
+                'user'         => $result['user'],
             ]);
         }
+
         return response()->json([
             'message' => 'Invalid credentials'
         ], 401);
@@ -61,7 +67,11 @@ class AuthController extends Controller
     public function refresh(Request $request)
     {
         try {
-            $newToken = \Tymon\JWTAuth\Facades\JWTAuth::refresh(); // Tự lấy token từ header
+            $token = \Tymon\JWTAuth\Facades\JWTAuth::getToken();
+            if (!$token) {
+                return response()->json(['message' => 'Token not found in request']);
+            }
+            $newToken = \Tymon\JWTAuth\Facades\JWTAuth::refresh($token); // Tự lấy token từ header
             return response()->json([
                 'access_token' => $newToken,
                 'token_type' => 'bearer',

@@ -22,9 +22,9 @@ class UpdateProfileRequest extends FormRequest
    public function rules(): array
     {
         return [
-            'name' => 'required|string|max:255',
-            'avatar_url' => 'nullable|url',
-            'cover_url' => 'nullable|url',
+            'name' => 'string|max:255',
+            'avatar_url' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'cover_url' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:40096',
             'bio' => 'nullable|string|max:1000',
         ];
     }

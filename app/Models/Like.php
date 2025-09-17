@@ -11,4 +11,10 @@ class Like extends Pivot
     public $timestamps = false;
 
     protected $fillable = ['user_id', 'post_id', 'liked_at'];
+    public function delete()
+    {
+        return static::where('user_id', $this->user_id)
+            ->where('post_id', $this->post_id)
+            ->delete();
+    }
 }

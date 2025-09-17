@@ -16,7 +16,6 @@ return new class extends Migration
             $table->uuid('user_id');
             $table->string('role', 50)->default('member');
             $table->timestamps();
-
             $table->primary(['group_id', 'user_id']);
             $table->foreign('group_id')->references('group_id')->on('groups');
             $table->foreign('user_id')->references('user_id')->on('users');

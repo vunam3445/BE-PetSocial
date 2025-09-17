@@ -1,43 +1,85 @@
 <?php
+
 namespace App\Services;
+
 use App\Repositories\ProfileRepository\ProfileInterface;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpKernel\Exception\HttpException;
+use Illuminate\Http\UploadedFile;
+use App\Models\Follow;
 
 class ProfileService
 {
-    public function __construct(private ProfileInterface $profileRepository)
-    {
-    }
+    public function __construct(private ProfileInterface $profileRepository) {}
 
-    public function updateProfile(string $userId, array $data): bool
+    public function updateProfile(string $userId, array $data)
     {
+        $userAuth = Auth::id();
+        if (!$userAuth) {
+            throw new HttpException(401, 'Chưa xác thực người dùng.');
+        }
+
+        // ✅ Kiểm tra người dùng có đúng là chủ tài khoản hay không
+        if ($userAuth!== $userId) {
+            throw new HttpException(403, 'Bạn không có quyền cập nhật profile này.');
+        }
+
+        // ✅ Xử lý ảnh avatar nếu có và đúng kiểu file
+        if (isset($data['avatar_url']) && $data['avatar_url'] instanceof UploadedFile) {
+            $avatarPath = $data['avatar_url']->store('avatars', 'public');
+            $data['avatar_url'] = asset('storage/' . $avatarPath);
+        }
+
+        // ✅ Xử lý ảnh cover nếu có và đúng kiểu file
+        if (isset($data['cover_url']) && $data['cover_url'] instanceof UploadedFile) {
+            $coverPath = $data['cover_url']->store('covers', 'public');
+            $data['cover_url'] = asset('storage/' . $coverPath);
+        }
+
         return $this->profileRepository->updateProfile($userId, $data);
     }
 
-public function getProfile(?string $userId): array
+    public function getProfile(string $userId): array
 {
-    if ($userId) {
-        return $this->profileRepository->getProfile($userId);
+    $profile = $this->profileRepository->getProfile($userId);
+
+    if (empty($profile)) {
+        return [];
     }
 
-    $user = Auth::user();
-    return [
-        'userId' => $user->user_id,
-        'name' => $user->name,
-        'avatar_url' => $user->avatar_url,
-        'cover_url' => $user->cover_url,
-        'bio' => $user->bio,
-        'date_of_birth' => $user->date_of_birth,
-        'gender' => $user->gender,
-        'created_at' => $user->created_at,
-        'updated_at' => $user->updated_at,
-    ];
+    $authId = Auth::id();
+    $isFollowing = false;
+
+    if ($authId && $authId !== $userId) {
+        $isFollowing = Follow::where('follower_id', $authId)
+            ->where('followed_id', $userId)
+            ->exists();
+    }
+
+    // Thêm thông tin vào kết quả
+    $profile['user']['is_following'] = $isFollowing;
+
+    return $profile;
 }
+
+
 
 
     public function deleteProfile(string $userId): bool
     {
         return $this->profileRepository->deleteProfile($userId);
+    }
+
+    public function getMedia(string $userId, string $mediaType)
+    {
+        return $this->profileRepository->getMediaByUser('user_id', $userId, [$mediaType], 10);
+    }
+
+    public function getFollowers(string $userId, int $limit){
+        return $this->profileRepository->getFollowers($userId,$limit);
+    }
+    public function getFollowing( string $userId, int $limit){
+        return $this->profileRepository->getFollowing($userId, $limit);
     }
 }

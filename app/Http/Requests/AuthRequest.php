@@ -17,6 +17,8 @@ class AuthRequest extends FormRequest
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:6|confirmed',
+            'date_of_birth' => 'required|date|before:today',
+            'gender' => 'required|in:male,female,unknown',
             // 'confirmed' sẽ tự kiểm tra xem password === password_confirmation
         ];
     }

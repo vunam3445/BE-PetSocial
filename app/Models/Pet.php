@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
-
+use Illuminate\Support\Str;
 class Pet extends Model
 {
     use HasUuids;
@@ -15,5 +15,21 @@ class Pet extends Model
 
     protected $fillable = ['user_id', 'name', 'type', 'breed', 'gender', 'birthday', 'avatar_url'];
 
-    public function user() { return $this->belongsTo(User::class, 'user_id'); }
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (empty($model->pet_id)) {
+                $model->pet_id = (string) Str::uuid();
+            }
+        });
+    }
 }
