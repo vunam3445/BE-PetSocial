@@ -9,4 +9,6 @@ interface ProfileInterface
     public function deleteProfile(string $userId): bool;
     public function getUser(string $userId);
     public function getMediaByUser(string $field, $value, array $dk, int $limit = 10);
+    public function getFollowers (string $userId, int $limit);
+    public function getFollowing(string $userId, int $limit);
 }

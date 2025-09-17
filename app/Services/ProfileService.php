@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Illuminate\Http\UploadedFile;
+use App\Models\Follow;
 
 class ProfileService
 {
@@ -40,9 +41,28 @@ class ProfileService
     }
 
     public function getProfile(string $userId): array
-    {
-        return $this->profileRepository->getProfile($userId);
+{
+    $profile = $this->profileRepository->getProfile($userId);
+
+    if (empty($profile)) {
+        return [];
     }
+
+    $authId = Auth::id();
+    $isFollowing = false;
+
+    if ($authId && $authId !== $userId) {
+        $isFollowing = Follow::where('follower_id', $authId)
+            ->where('followed_id', $userId)
+            ->exists();
+    }
+
+    // Thêm thông tin vào kết quả
+    $profile['user']['is_following'] = $isFollowing;
+
+    return $profile;
+}
+
 
 
 
@@ -54,5 +74,12 @@ class ProfileService
     public function getMedia(string $userId, string $mediaType)
     {
         return $this->profileRepository->getMediaByUser('user_id', $userId, [$mediaType], 10);
+    }
+
+    public function getFollowers(string $userId, int $limit){
+        return $this->profileRepository->getFollowers($userId,$limit);
+    }
+    public function getFollowing( string $userId, int $limit){
+        return $this->profileRepository->getFollowing($userId, $limit);
     }
 }

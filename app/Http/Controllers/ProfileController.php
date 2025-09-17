@@ -10,9 +10,7 @@ use Illuminate\Support\Facades\Auth;
 
 class ProfileController extends Controller
 {
-    public function __construct(private ProfileService $profileService)
-    {
-    }
+    public function __construct(private ProfileService $profileService) {}
 
     /**
      * Update the user's profile.
@@ -25,9 +23,10 @@ class ProfileController extends Controller
         $userId = Auth::id();
         $res = $this->profileService->updateProfile($userId, $data);
 
-        return response()->json(['message' => 'Profile updated successfully.',
-                            'user' => $res
-    ]);
+        return response()->json([
+            'message' => 'Profile updated successfully.',
+            'user' => $res
+        ]);
     }
 
     /**
@@ -54,5 +53,24 @@ class ProfileController extends Controller
     {
         $media = $this->profileService->getMedia($userId, $mediaType);
         return response()->json($media);
+    }
+
+    public function getFollowers(string $userId)
+    {
+        $perPage = 10; // mặc định 10
+        $followers = $this->profileService->getFollowers($userId, $perPage);
+
+        return response()->json($followers);
+    }
+
+    /**
+     * Lấy danh sách followings (có phân trang)
+     */
+    public function getFollowing(string $userId)
+    {
+        $perPage = 10;
+        $followings = $this->profileService->getFollowing($userId, $perPage);
+
+        return response()->json($followings);
     }
 }

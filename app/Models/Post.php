@@ -34,7 +34,7 @@ class Post extends Model
     }
     public function sharedPost()
     {
-        return $this->belongsTo(Post::class, 'shared_post_id');
+    return $this->belongsTo(Post::class, 'shared_post_id', 'post_id');
     }
     public function comments()
     {

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Auth\Access\AuthorizationException;
 
 class PostService
 {
@@ -25,6 +26,12 @@ class PostService
     public function createPost(array $data)
     {
         return DB::transaction(function () use ($data) {
+            // ✅ 0. Kiểm tra chính chủ
+            $currentUserId = Auth::id();
+            if ($currentUserId !== $data['author_id']) {
+                throw new AuthorizationException('Bạn không có quyền đăng bài với user_id này.');
+            }
+            
             // 1. Tạo post
             $post = $this->postRepository->create([
                 'author_id'      => $data['author_id'],
@@ -41,9 +48,7 @@ class PostService
             $tags = array_unique(array_map(fn($tag) => Str::lower(trim($tag)), $matches[1]));
 
             if (!empty($tags)) {
-                // Upsert tags và lấy danh sách ID
                 $tagIds = $this->tagRepository->upsertAndGetIds($tags);
-                // Gắn vào post_tags
                 $post->tags()->syncWithoutDetaching($tagIds);
             }
 
@@ -79,35 +84,53 @@ class PostService
                 }
             }
 
-            return $post->load(['media', 'author:user_id,name,avatar_url', 'tags']);
+            return $post
+                ->load([
+                    'media',
+                    'author:user_id,name,avatar_url',
+                    'tags',
+                    'sharedPost.media',
+                    'sharedPost.author:user_id,name,avatar_url',
+                    'sharedPost.tags'
+                ])
+                ->loadCount(['likes', 'comments']);
         });
     }
 
 
 
-    public function getByField(string $field, $value, array $relations = [], array $withCount = [], int $limit = 20)
-{
-    $query = $this->postRepository->getQuery()->with($relations);
+    public function getByField(
+        string $field,
+        $value,
+        array $relations = [],
+        array $withCount = [],
+        int $limit = 20
+    ) {
+        $query = $this->postRepository
+            ->getQuery()
+            ->with(array_merge($relations, ['sharedPost.media', 'sharedPost.author:user_id,name,avatar_url', 'sharedPost.tags']));
 
-    if (!empty($withCount)) {
-        $query->withCount($withCount);
+        if (!empty($withCount)) {
+            $query->withCount($withCount);
+        }
+
+        // ✅ thêm flag is_liked
+        $userId = Auth::id();
+        if ($userId) {
+            $query->withCount([
+                'comments',
+                'likes as is_liked' => function ($q) use ($userId) {
+                    $q->where('user_id', $userId);
+                }
+            ]);
+        }
+
+        return $query
+            ->where($field, $value)
+            ->orderBy('updated_at', 'desc')
+            ->paginate($limit);
     }
 
-    // ✅ thêm flag is_liked
-    $userId = Auth::id();
-    if ($userId) {
-        $query->withCount([
-            'likes as is_liked' => function ($q) use ($userId) {
-                $q->where('user_id', $userId);
-            }
-        ]);
-    }
-
-    return $query
-        ->where($field, $value)
-        ->orderBy('updated_at', 'desc')
-        ->paginate($limit);
-}
 
     public function updatePost(string $id, array $data)
     {
@@ -198,7 +221,14 @@ class PostService
                 'visibility' => $visibility,
             ]);
 
-            return $post->load(['media', 'author:user_id,name,avatar_url', 'tags']);
+            return $post->load([
+                'media',
+                'author:user_id,name,avatar_url',
+                'tags',
+                'sharedPost.media',
+                'sharedPost.author:user_id,name,avatar_url',
+                'sharedPost.tags'
+            ])->loadCount(['likes', 'comments']);
         });
     }
     public function deletePost(string $id)
@@ -225,5 +255,13 @@ class PostService
 
         // Xoá post
         return $this->postRepository->delete($id);
+    }
+
+    public function getAllPosts(
+        array $relations = [],
+        array $withCount = [],
+        int $limit = 15
+    ) {
+        return $this->postRepository->getAllPosts($relations, $withCount, $limit);
     }
 }

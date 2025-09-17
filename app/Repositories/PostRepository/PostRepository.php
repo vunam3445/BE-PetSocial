@@ -4,9 +4,7 @@ namespace App\Repositories\PostRepository;
 
 use App\Repositories\Base\BaseRepository;
 use App\Models\Post;
-use App\Models\PostMedia;
-use Illuminate\Support\Str;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class PostRepository extends BaseRepository implements PostInterface
 {
@@ -15,8 +13,40 @@ class PostRepository extends BaseRepository implements PostInterface
         parent::__construct($model);
     }
 
-        public function getQuery()
+    public function getQuery()
     {
         return $this->model->newQuery();
+    }
+
+    public function getAllPosts(
+        array $relations = [],
+        array $withCount = [],
+        int $limit = 20
+    ) {
+        $query = $this->getQuery()
+            ->with(array_merge($relations, [
+                'sharedPost.media',
+                'sharedPost.author:user_id,name,avatar_url',
+                'sharedPost.tags'
+            ]));
+
+        if (!empty($withCount)) {
+            $query->withCount($withCount);
+        }
+
+        $userId = Auth::id();
+        if ($userId) {
+            $query->withCount([
+                'comments',
+                'likes as is_liked' => function ($q) use ($userId) {
+                    $q->where('user_id', $userId);
+                }
+            ]);
+        }
+
+        return $query
+            ->where('visibility', '!=', 'private') // ✅ loại private
+            ->orderBy('updated_at', 'desc')
+            ->paginate($limit);
     }
 }

@@ -30,7 +30,7 @@ class PostController extends Controller
 
     public function getPostByUserId(string $id)
     {
-        $posts = $this->postService->getByField('author_id', $id, ['media', 'author:user_id,name,avatar_url'],['likes'], 10);
+        $posts = $this->postService->getByField('author_id', $id, ['media', 'author:user_id,name,avatar_url'], ['likes'], 10);
         return response()->json([
             'posts' => $posts
         ]);
@@ -78,5 +78,14 @@ class PostController extends Controller
         }
 
         return response()->json(['message' => 'Failed to delete post'], 400);
-    }   
+    }
+    public function getAllPosts()
+    {
+
+        $posts = $this->postService->getAllPosts(['media', 'author:user_id,name,avatar_url'], ['likes'], 10);
+
+        return response()->json([
+            'posts' => $posts
+        ]);
+    }
 }

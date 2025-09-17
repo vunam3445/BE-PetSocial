@@ -44,7 +44,7 @@ class PetRepository implements PetInterface
 
     public function getAllPetsByUser(string $userId): array
     {
-        $pets = Pet::where('user_id', $userId)->get();
+        $pets = Pet::where('user_id', $userId)->orderBy('created_at', 'desc')->get();
         return $pets->toArray();
     }
 }

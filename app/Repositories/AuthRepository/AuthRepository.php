@@ -28,15 +28,27 @@ class AuthRepository implements AuthInterface
         ]);
     }
 
+
     public function login(array $data)
     {
-        
-        if (!$token=JWTAuth::attempt($data)) {
+        if (! $token = JWTAuth::attempt($data)) {
             return null;
         }
 
-        return $token; 
+        // Lấy user từ JWTAuth
+        $user = JWTAuth::user();
+
+        return [
+            'token' => $token,
+            'user' => [
+                'user_id' => $user->user_id,
+                'name' => $user->name,
+                'avatar_url' => $user->avatar_url,
+            ],
+        ];
     }
+
+
 
     public function logout(): void
     {

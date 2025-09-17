@@ -17,6 +17,12 @@ use App\Repositories\TagRepository\TagInterface;
 use App\Repositories\TagRepository\TagRepository;
 use App\Repositories\LikeRepository\LikeInterface;
 use App\Repositories\LikeRepository\LikeRepository;
+use App\Repositories\CommentRepository\CommentInterface;
+use App\Repositories\CommentRepository\CommentRepository;
+use App\Repositories\FollowRepository\FollowInterface;
+use App\Repositories\FollowRepository\FollowRepository;
+use App\Repositories\SearchRepository\SearchInterface;
+use App\Repositories\SearchRepository\SearchRepository;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -31,6 +37,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(PostInterface::class, PostRepository::class);
         $this->app->bind(TagInterface::class, TagRepository::class);
         $this->app->bind(LikeInterface::class, LikeRepository::class);
+        $this->app->bind(CommentInterface::class, CommentRepository::class);
+        $this->app->bind(FollowInterface::class, FollowRepository::class);
+        $this->app->bind(SearchInterface::class, SearchRepository::class);
     }
 
     /**
@@ -39,20 +48,29 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // cấu hình chống spam like
-            $this->configureRateLimiting();
+        $this->configureRateLimiting();
 
-    // routes có thể được đăng ký trong RouteServiceProvider hoặc trong routes/web.php, routes/api.php, v.v.
-    // Nếu cần đăng ký routes ở đây, hãy sử dụng Route::middleware() hoặc Route::group() trực tiếp.
+        // routes có thể được đăng ký trong RouteServiceProvider hoặc trong routes/web.php, routes/api.php, v.v.
+        // Nếu cần đăng ký routes ở đây, hãy sử dụng Route::middleware() hoặc Route::group() trực tiếp.
     }
     protected function configureRateLimiting()
-{
-    RateLimiter::for('like-per-post', function ($request) {
-        $userId = $request->user()?->id ?? $request->ip();
-        $postId = $request->route('postId');
+    {
+        RateLimiter::for('like-per-post', function ($request) {
+            $userId = $request->user()?->id ?? $request->ip();
+            $postId = $request->route('postId');
 
-        return [
-            Limit::perMinute(5)->by($userId . '|' . $postId),
-        ];
-    });
-}
+            return [
+                Limit::perMinute(5)->by($userId . '|' . $postId),
+            ];
+        });
+        RateLimiter::for('follow-unfollow', function ($request) {
+            $userId = $request->user()?->id ?? $request->ip();
+            $targetId = $request->route('id'); // user mà mình follow/unfollow
+
+            return [
+                // Giới hạn 5 lần mỗi phút cho cùng 1 cặp (người theo dõi -> người được theo dõi)
+                Limit::perMinute(5)->by($userId . '|' . $targetId),
+            ];
+        });
+    }
 }
