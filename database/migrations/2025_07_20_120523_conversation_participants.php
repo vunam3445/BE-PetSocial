@@ -11,12 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-                Schema::create('conversation_participants', function (Blueprint $table) {
+            Schema::create('conversation_participants', function (Blueprint $table) {
             $table->uuid('conversation_id');
             $table->uuid('user_id');
             $table->timestamps();
             $table->string('role', 20)->default('member');
-
+            $table->timestamp('last_read_at')->nullable();   // lần cuối mở conversation
+            $table->timestamp('last_reply_at')->nullable();  // lần cuối user trả lời
             $table->primary(['conversation_id', 'user_id']);
             $table->foreign('conversation_id')->references('conversation_id')->on('conversations')->onDelete('cascade');
             $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');

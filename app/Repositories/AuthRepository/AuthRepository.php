@@ -4,7 +4,7 @@ namespace App\Repositories\AuthRepository;
 
 use App\Models\User;
 use Tymon\JWTAuth\Facades\JWTAuth;
-
+use Illuminate\Support\Facades\Storage;
 class AuthRepository implements AuthInterface
 {
     public function register(array $data)
@@ -12,8 +12,8 @@ class AuthRepository implements AuthInterface
         $email = $data['email'] ?? null;
         $password = $data['password'] ?? null;
         $name = $data['name'] ?? null;
-        $avatar_url = 'text'; // Default value, can be changed based on requirements
-        $cover_url = 'text';
+        $avatar_url = Storage::url('avatars/default-avatar.webp');
+        $cover_url  = Storage::url('avatars/default-avatar.webp');
         $date_of_birth = $data['date_of_birth'] ?? null;
         $gender = $data['gender'] ?? null;
 

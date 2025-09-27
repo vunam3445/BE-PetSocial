@@ -9,6 +9,8 @@ use App\Http\Controllers\LikeController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\FollowController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\ConversationController;
+use App\Http\Controllers\MessageController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -85,4 +87,17 @@ Route::middleware('auth:api')->group(function () {
 
     // Search routes
     Route::get('/search', [SearchController::class, 'search']);
+
+     // Conversation routes
+Route::get('conversations/recent', [ConversationController::class, 'recent']);
+Route::post('conversations', [ConversationController::class, 'store']);
+Route::delete('conversations/{conversationId}', [ConversationController::class, 'destroy']);
+Route::put('conversations/{conversationId}/read', [ConversationController::class, 'update']);
+
+    // Messages (lồng trong conversations)
+    Route::apiResource('conversations.messages', MessageController::class)
+        ->shallow(); 
+    // shallow() cho phép gọi messages/:id thay vì conversations/:conversationId/messages/:id
+    Route::put('conversations/{conversationId}/read', [ConversationController::class, 'update']);
+
 });

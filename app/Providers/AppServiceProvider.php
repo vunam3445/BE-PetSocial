@@ -23,6 +23,10 @@ use App\Repositories\FollowRepository\FollowInterface;
 use App\Repositories\FollowRepository\FollowRepository;
 use App\Repositories\SearchRepository\SearchInterface;
 use App\Repositories\SearchRepository\SearchRepository;
+use App\Repositories\MessageRepository\MessageInterface;
+use App\Repositories\MessageRepository\MessageRepository;
+use App\Repositories\ConversationRepository\ConversationInterface;
+use App\Repositories\ConversationRepository\ConversationRepository;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -40,6 +44,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(CommentInterface::class, CommentRepository::class);
         $this->app->bind(FollowInterface::class, FollowRepository::class);
         $this->app->bind(SearchInterface::class, SearchRepository::class);
+        $this->app->bind(MessageInterface::class, MessageRepository::class);
+        $this->app->bind(ConversationInterface::class, ConversationRepository::class);
     }
 
     /**
