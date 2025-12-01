@@ -5,6 +5,8 @@ namespace App\Providers;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use App\Models\Group;
+use App\Policies\GroupPolicy;
 use App\Repositories\AuthRepository\AuthInterface;
 use App\Repositories\AuthRepository\AuthRepository;
 use App\Repositories\ProfileRepository\ProfileInterface;
@@ -27,7 +29,18 @@ use App\Repositories\MessageRepository\MessageInterface;
 use App\Repositories\MessageRepository\MessageRepository;
 use App\Repositories\ConversationRepository\ConversationInterface;
 use App\Repositories\ConversationRepository\ConversationRepository;
-
+use App\Repositories\HealthCategoryRepository\HealthCategoryInterface;
+use App\Repositories\HealthCategoryRepository\HealthCategoryRepository;
+use App\Repositories\PetHealthLogRepository\PetHealthLogInterface;
+use App\Repositories\PetHealthLogRepository\PetHealthLogRepository;
+use App\Repositories\PetFollowRepository\PetFollowInterface;
+use App\Repositories\PetFollowRepository\PetFollowRepository;
+use App\Repositories\GroupRepository\GroupInterface;
+use App\Repositories\GroupRepository\GroupRepository;
+use App\Repositories\MembershipQuestion\MembershipInterface;
+use App\Repositories\MembershipQuestion\MembershipRepository;
+use App\Repositories\MemberJoinRequestRepository\MemberJoinRequestInterface;
+use App\Repositories\MemberJoinRequestRepository\MemberJoinRequestRepository;
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -46,6 +59,12 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(SearchInterface::class, SearchRepository::class);
         $this->app->bind(MessageInterface::class, MessageRepository::class);
         $this->app->bind(ConversationInterface::class, ConversationRepository::class);
+        $this->app->bind(HealthCategoryInterface::class, HealthCategoryRepository::class);
+        $this->app->bind(PetHealthLogInterface::class, PetHealthLogRepository::class);
+        $this->app->bind(PetFollowInterface::class, PetFollowRepository::class);
+        $this->app->bind(GroupInterface::class, GroupRepository::class);
+        $this->app->bind(MembershipInterface::class, MembershipRepository::class);
+        $this->app->bind(MemberJoinRequestInterface::class, MemberJoinRequestRepository::class);
     }
 
     /**
@@ -55,7 +74,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // cấu hình chống spam like
         $this->configureRateLimiting();
-
+        
         // routes có thể được đăng ký trong RouteServiceProvider hoặc trong routes/web.php, routes/api.php, v.v.
         // Nếu cần đăng ký routes ở đây, hãy sử dụng Route::middleware() hoặc Route::group() trực tiếp.
     }
@@ -79,4 +98,8 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
     }
+    protected $policies = [
+    Group::class => GroupPolicy::class,
+];
+
 }

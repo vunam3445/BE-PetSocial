@@ -82,4 +82,25 @@ class AuthController extends Controller
             return response()->json(['message' => 'Token not provided'], 401);
         }
     }
+    public function confirmRegister(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'otp'   => 'required|digits:6',
+        ]);
+
+        $user = $this->authService->confirmRegister($request->all());
+
+        if ($user) {
+            return response()->json($user);
+        }
+
+        return response()->json(['message' => 'OTP không hợp lệ hoặc đã hết hạn'], 400);
+    }
+    public function sendOtp(Request $request){
+        $request->validate(['email'=>'required|email']);
+        $this->authService->sendOtp($request->all());
+        return response()->json(['message' => 'Đã gửi mã OTP'], 200);
+
+    }
 }

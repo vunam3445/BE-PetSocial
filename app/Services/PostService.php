@@ -26,10 +26,9 @@ class PostService
     public function createPost(array $data)
     {
         return DB::transaction(function () use ($data) {
-            // ✅ 0. Kiểm tra chính chủ
             $currentUserId = Auth::id();
             if ($currentUserId !== $data['author_id']) {
-                throw new AuthorizationException('Bạn không có quyền đăng bài với user_id này.');
+                throw new AuthorizationException('Bạn không có quyền đăng bài này.');
             }
             
             // 1. Tạo post
@@ -39,6 +38,7 @@ class PostService
                 'visibility'     => $data['visibility'] ?? 'public',
                 'shared_post_id' => $data['shared_post_id'] ?? null,
                 'group_id'       => $data['group_id'] ?? null,
+                'pet_id'        => $data['pet_id'] ?? null,
             ]);
 
             // 2. Xử lý tag
@@ -91,7 +91,8 @@ class PostService
                     'tags',
                     'sharedPost.media',
                     'sharedPost.author:user_id,name,avatar_url',
-                    'sharedPost.tags'
+                    'sharedPost.tags',
+                    'pet:pet_id,name,avatar_url'
                 ])
                 ->loadCount(['likes', 'comments']);
         });
@@ -106,6 +107,7 @@ class PostService
         array $withCount = [],
         int $limit = 20
     ) {
+        $ownerId = Auth::id();
         $query = $this->postRepository
             ->getQuery()
             ->with(array_merge($relations, ['sharedPost.media', 'sharedPost.author:user_id,name,avatar_url', 'sharedPost.tags']));
@@ -127,6 +129,7 @@ class PostService
 
         return $query
             ->where($field, $value)
+            ->selectRaw('*, (author_id = ?) as is_owner', [$ownerId])
             ->orderBy('updated_at', 'desc')
             ->paginate($limit);
     }

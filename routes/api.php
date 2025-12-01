@@ -11,6 +11,12 @@ use App\Http\Controllers\FollowController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\MessageController;
+use App\Http\Controllers\HealthCategoryController;
+use App\Http\Controllers\PetHealthLogController;
+use App\Http\Controllers\PetFollowController;
+use App\Http\Controllers\GroupController;
+use App\Http\Controllers\MembershipQuestionController;
+
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -27,7 +33,8 @@ Route::prefix('auth')->group(function () {
     Route::post('register', [AuthController::class, 'register']);     // POST /api/auth/register
     Route::post('login',    [AuthController::class, 'login']);        // POST /api/auth/login
     Route::post('refresh', [AuthController::class, 'refresh']);
-
+    Route::post('confirm-register', [AuthController::class, 'confirmRegister']);
+    Route::post('sendOtp',[AuthController::class,'sendOtp']);
     Route::middleware('auth:api')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
 
@@ -52,11 +59,14 @@ Route::middleware('auth:api')->group(function () {
     Route::put('pets/{petId}', [PetController::class, 'update']);
     // Xoá pet
     Route::delete('pets/{petId}', [PetController::class, 'delete']);
+    // Lấy tất cả bài viết của pet
+    Route::get('pets/{petId}/posts', [PetController::class, 'getAllPostsByPet']);
     // Post route
     Route::get('posts', [PostController::class, 'getAllPosts']);
     Route::post('posts', [PostController::class, 'create']);
     Route::patch('posts/{id}', [PostController::class, 'update']);
     Route::delete('posts/{id}', [PostController::class, 'delete']);
+    
     // Nested resource
     Route::get('users/{id}/posts', [PostController::class, 'getPostByUserId']);
 
@@ -73,13 +83,17 @@ Route::middleware('auth:api')->group(function () {
     Route::get('comments/{commentId}/replies', [CommentController::class, 'getReplies']); // lấy reply của comment
     Route::delete('comments/{commentId}', [CommentController::class, 'destroy']); // xoá comment
 
-    // Follow routes
+    // user Follow routes
     // Follow / Unfollow
     Route::post('users/{id}/follow', [FollowController::class, 'follow'])
-            ->middleware('throttle:follow-unfollow');
+        ->middleware('throttle:follow-unfollow');
     Route::delete('users/{id}/follow', [FollowController::class, 'unfollow'])
-            ->middleware('throttle:follow-unfollow'); // unfollow user
-
+        ->middleware('throttle:follow-unfollow'); // unfollow user
+    // Pet Follow / Unfollow
+    Route::post('pets/{id}/follow', [PetFollowController::class, 'follow'])
+        ->middleware('throttle:follow-unfollow');
+    Route::delete('pets/{id}/follow', [PetFollowController::class, 'unfollow'])
+        ->middleware('throttle:follow-unfollow'); // unfollow pet
     // Danh sách followers và following
     Route::get('users/{id}/followers', [ProfileController::class, 'getFollowers']);
     Route::get('users/{id}/following', [ProfileController::class, 'getFollowing']);
@@ -88,16 +102,53 @@ Route::middleware('auth:api')->group(function () {
     // Search routes
     Route::get('/search', [SearchController::class, 'search']);
 
-     // Conversation routes
-Route::get('conversations/recent', [ConversationController::class, 'recent']);
-Route::post('conversations', [ConversationController::class, 'store']);
-Route::delete('conversations/{conversationId}', [ConversationController::class, 'destroy']);
-Route::put('conversations/{conversationId}/read', [ConversationController::class, 'update']);
+    // Conversation routes
+    Route::get('conversations', [ConversationController::class, 'index']);
+
+    Route::get('conversations/recent', [ConversationController::class, 'recent']);
+    Route::post('conversations', [ConversationController::class, 'store']);
+    Route::delete('conversations/{conversationId}', [ConversationController::class, 'destroy']);
+    Route::put('conversations/{conversationId}/read', [ConversationController::class, 'update']);
 
     // Messages (lồng trong conversations)
     Route::apiResource('conversations.messages', MessageController::class)
-        ->shallow(); 
+        ->shallow();
     // shallow() cho phép gọi messages/:id thay vì conversations/:conversationId/messages/:id
     Route::put('conversations/{conversationId}/read', [ConversationController::class, 'update']);
+
+
+     // 📋 HEALTH CATEGORY ROUTES
+    // -----------------------------
+    Route::post('/health-categories', [HealthCategoryController::class, 'store']);
+    Route::get('/health-categories/{petId}', [HealthCategoryController::class, 'index']);
+    Route::put('/health-categories/{id}', [HealthCategoryController::class, 'update']);
+    Route::delete('/health-categories/{id}', [HealthCategoryController::class, 'destroy']);
+    Route::get('/health-categories/species/{species}', [HealthCategoryController::class, 'getBySpecies']);
+
+    // -----------------------------
+    // 🩺 PET HEALTH LOG ROUTES
+    // -----------------------------
+    Route::post('/pet-health-logs', [PetHealthLogController::class, 'store']);
+    Route::put('/pet-health-logs/{id}', [PetHealthLogController::class, 'update']);
+    Route::delete('/pet-health-logs/{id}', [PetHealthLogController::class, 'destroy']);
+    Route::get('/pet-health-logs/pet/{petId}', [PetHealthLogController::class, 'getLogsByPetId']);
+
+
+    // group routes
+    Route::post('/groups', [GroupController::class, 'createGroup']);
+    Route::get('/groups/{id}', [GroupController::class, 'getGroupById']);
+    Route::put('/groups/{group}', [GroupController::class, 'updateGroup']);
+    Route::delete('/groups/{group}', [GroupController::class, 'deleteGroup']);
+    Route::get('/users/{userId}/groups', [GroupController::class, 'getGroupsByUserId']);
+    Route::get('/users/{userId}/groups-attended', [GroupController::class, 'getGroupOfUserAttended']);
+    Route::post('/groups/{groupId}/members', [GroupController::class, 'addMemberToGroup']);
+    Route::get('/groups/{groupId}/members',[GroupController::class, 'getMembers'] );
+
+
+    //question and answer routes
+    Route::post('/groups/questions',[MembershipQuestionController::class,'create']);
+    Route::get('/groups/{groupId}/questions',[MembershipQuestionController::class, 'index']);
+    Route::put('/groups/questions/{questionId}',[MembershipQuestionController::class,'update']);
+    Route::delete('/groups/questions/{questionId}',[MembershipQuestionController::class,'delete']);
 
 });

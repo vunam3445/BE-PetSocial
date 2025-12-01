@@ -61,7 +61,7 @@ class User extends Authenticatable implements JWTSubject
     public function comments()         { return $this->hasMany(Comment::class, 'user_id'); }
     public function likes()            { return $this->hasMany(Like::class, 'user_id'); }
     public function groupsCreated()    { return $this->hasMany(Group::class, 'created_by'); }
-    public function groupMemberships() { return $this->belongsToMany(Group::class, 'group_members', 'user_id', 'group_id')->withPivot('role', 'joined_at'); }
+    public function groupMemberships() { return $this->belongsToMany(Group::class, 'group_members', 'user_id', 'group_id')->withPivot('role', 'joined_at', 'status'); }
     public function conversations()    { return $this->belongsToMany(Conversation::class, 'conversation_participants', 'user_id', 'conversation_id'); }
     public function sentMessages()     { return $this->hasMany(Message::class, 'sender_id'); }
     public function followers()        { return $this->belongsToMany(User::class, 'follows', 'followed_id', 'follower_id'); }
@@ -72,7 +72,13 @@ class User extends Authenticatable implements JWTSubject
     }
     public function interactions()     { return $this->hasMany(UserInteraction::class, 'user_id'); }
 
-    
+    public function followedPets()
+{
+    return $this->belongsToMany(Pet::class, 'pet_follows', 'user_id', 'pet_id')
+                ->withPivot('followed_at')
+                ->withTimestamps();
+}
+
 protected static function boot()
 {
     parent::boot();

@@ -15,14 +15,16 @@ return new class extends Migration
             $table->uuid('pet_id')->primary();
             $table->uuid('user_id');
             $table->string('name');
-            $table->string('type', 100);
+            $table->text('type'); // FK → pet_species
             $table->string('breed', 100);
             $table->string('gender', 10);
             $table->date('birthday');
             $table->text('avatar_url')->nullable();
+            $table->text('cover_url')->nullable();
             $table->timestamps();
 
             $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
+
         });
     }
 

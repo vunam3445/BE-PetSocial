@@ -65,4 +65,10 @@ class PetController extends Controller
         $pets = $this->petService->getAllPetsByUser($userId);
         return response()->json($pets);
     }
+    public function getAllPostsByPet(string $petId, Request $request)
+    {
+        $limit = $request->query('limit', 10); // Default limit is 10
+        $posts = $this->petService->getAllPostsByPet($petId, $limit);
+        return response()->json($posts);
+    }
 }

@@ -17,13 +17,13 @@ class FollowController extends Controller
 
     public function follow(Request $request, string $userId)
     {
-        $this->followService->follow(Auth::id(), $userId);
+        $this->followService->follow(Auth::id(), $userId, 'user');
         return response()->json(['message' => 'Follow thành công']);
     }
 
     public function unfollow(Request $request, string $userId)
     {
-        $this->followService->unfollow(Auth::id(), $userId);
+        $this->followService->unfollow(Auth::id(), $userId, 'user');
         return response()->json(['message' => 'Unfollow thành công']);
     }
 

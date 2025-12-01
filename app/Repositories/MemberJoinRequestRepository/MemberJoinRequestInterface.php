@@ -1,0 +1,8 @@
+<?php
+namespace App\Repositories\MemberJoinRequestRepository;
+
+use App\Repositories\Base\BaseInterface;
+
+interface MemberJoinRequestInterface extends BaseInterface{
+    public function deleteRequest(string $groupId, string $userId);
+}

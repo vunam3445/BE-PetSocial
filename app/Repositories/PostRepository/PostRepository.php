@@ -23,6 +23,7 @@ class PostRepository extends BaseRepository implements PostInterface
         array $withCount = [],
         int $limit = 20
     ) {
+        $ownerId = Auth::id();
         $query = $this->getQuery()
             ->with(array_merge($relations, [
                 'sharedPost.media',
@@ -46,6 +47,7 @@ class PostRepository extends BaseRepository implements PostInterface
 
         return $query
             ->where('visibility', '!=', 'private') // ✅ loại private
+            ->selectRaw('*, (author_id = ?) as is_owner', [$ownerId])
             ->orderBy('updated_at', 'desc')
             ->paginate($limit);
     }
