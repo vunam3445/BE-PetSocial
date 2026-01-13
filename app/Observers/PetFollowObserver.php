@@ -22,9 +22,7 @@ class PetFollowObserver
                 'metadata' => [
                     'pet_id' => $pet->pet_id,
                     'pet_name' => $pet->name,
-                    'tags' => $pet->tags, // Giả sử Pet cũng có tags như "Husky", "Cute"
-                    'type' => $pet->type,
-                    'breed' => $pet->breed
+                    'tags' => [$pet->breed,$pet->type], // Giả sử Pet cũng có tags như "Husky", "Cute"
                 ],
             ]);
         }

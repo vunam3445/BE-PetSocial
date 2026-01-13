@@ -6,6 +6,7 @@ use App\Models\PetFollow;
 use App\Repositories\Base\BaseRepository;
 use Illuminate\Support\Facades\DB;
 use App\Models\UserInteraction;
+
 class PetFollowRepository extends BaseRepository implements PetFollowInterface
 {
 
@@ -25,18 +26,40 @@ class PetFollowRepository extends BaseRepository implements PetFollowInterface
         ]);
     }
 
-   public function unfollow(string $userId, string $petId)
+    public function unfollow(string $userId, string $petId)
     {
         return DB::transaction(function () use ($userId, $petId) {
-            // 1. Xóa interaction của AI trước
-            // Điều này thay thế cho logic trong Observer
-            UserInteraction::where('user_id', $userId)
+            // 1. Tìm bản ghi interaction follow_pet TRƯỚC khi xóa
+            $interaction = UserInteraction::where('user_id', $userId)
                 ->where('action_type', 'follow_pet')
                 ->where('metadata->pet_id', $petId)
-                ->delete();
+                ->first();
 
-            // 2. Xóa bản ghi follow bằng Query Builder
-            // Dùng DB::table để tránh lỗi Model "zero-length delimited identifier"
+            if ($interaction) {
+                // Lấy danh sách tags từ metadata (Xử lý trường hợp metadata là string hoặc array)
+                $metadata = is_string($interaction->metadata)
+                    ? json_decode($interaction->metadata, true)
+                    : $interaction->metadata;
+
+                $tags = $metadata['tags'] ?? [];
+
+                if (!empty($tags)) {
+                    foreach ($tags as $tagName) {
+                        $tagName = strtolower(trim($tagName));
+
+                        // 2. Giảm score đi 10 cho mỗi tag trong profile
+                        DB::table('user_interest_profiles')
+                            ->where('user_id', $userId)
+                            ->where('tag_name', $tagName)
+                            ->decrement('score', 10);
+                    }
+                }
+
+                // 4. Xóa bản ghi interaction để Python không tính toán lại nó nữa
+                $interaction->delete();
+            }
+
+            // 5. Xóa bản ghi trong bảng pet_follows
             $deleted = DB::table('pet_follows')
                 ->where('user_id', $userId)
                 ->where('pet_id', $petId)

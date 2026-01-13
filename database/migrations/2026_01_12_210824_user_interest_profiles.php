@@ -16,6 +16,7 @@ return new class extends Migration
             $table->uuid('user_id');
             $table->string('tag_name');
             $table->float('score')->default(0);
+            $table->unique(['user_id', 'tag_name']);
             $table->timestamps();
 
             $table->foreign('user_id')->references('user_id')->on('users');
