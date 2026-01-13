@@ -3,36 +3,42 @@
 namespace App\Services;
 
 use App\Repositories\FollowRepository\FollowInterface;
+use App\Repositories\PetFollowRepository\PetFollowInterface;
 
 class FollowService
 {
     protected FollowInterface $followRepository;
+    protected PetFollowInterface $petFollowRepository;
 
-    public function __construct(FollowInterface $followRepository)
+    public function __construct(FollowInterface $followRepository, PetFollowInterface $petFollowRepository)
     {
         $this->followRepository = $followRepository;
+        $this->petFollowRepository = $petFollowRepository;
     }
 
     /**
      * Follow 1 user
      */
-    public function follow(string $followerId, string $followedId)
+  public function follow(string $followerId, string $targetId, string $type)
     {
-        if ($followerId === $followedId) {
-            throw new \InvalidArgumentException("Bạn không thể tự follow chính mình.");
-        }
-
-        return $this->followRepository->follow($followerId, $followedId);
+        return match($type) {
+            'user' => $this->followRepository->follow($followerId, $targetId),
+            'pet'  => $this->petFollowRepository->follow($followerId, $targetId),
+            default => throw new \InvalidArgumentException("Invalid follow type")
+        };
     }
 
     /**
      * Unfollow 1 user
      */
-    public function unfollow(string $followerId, string $followedId): bool
+    public function unfollow(string $followerId, string $targetId, string $type)
     {
-        return $this->followRepository->unfollow($followerId, $followedId);
+        return match($type) {
+            'user' => $this->followRepository->unfollow($followerId, $targetId),
+            'pet'  => $this->petFollowRepository->unfollow($followerId, $targetId),
+            default => throw new \InvalidArgumentException("Invalid follow type")
+        };
     }
-
     /**
      * Danh sách user mà $userId đang follow
      */
@@ -52,8 +58,12 @@ class FollowService
     /**
      * Kiểm tra quan hệ follow
      */
-    public function isFollowing(string $followerId, string $followedId): bool
+    public function isFollowing(string $followerId, string $targetId, string $type): bool
     {
-        return $this->followRepository->isFollowing($followerId, $followedId);
+        return match($type) {
+            'user' => $this->followRepository->isFollowing($followerId, $targetId),
+            'pet'  => $this->petFollowRepository->isFollowing($followerId, $targetId),
+            default => throw new \InvalidArgumentException("Invalid follow type")
+        };
     }
 }

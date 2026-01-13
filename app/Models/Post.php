@@ -21,7 +21,9 @@ class Post extends Model
         'media_type',
         'visibility',
         'shared_post_id',
-        'group_id'
+        'group_id',
+        'pet_id',
+        'status',
     ];
 
     public function author()
@@ -59,6 +61,14 @@ class Post extends Model
         return $this->hasMany(PostMedia::class, 'post_id');
     }
 
+    public function pet()
+    {
+        return $this->belongsTo(Pet::class, 'pet_id', 'pet_id');
+    }
+    public function reports()
+    {
+        return $this->hasMany(Report::class, 'post_id');
+    }
 
         
 protected static function boot()

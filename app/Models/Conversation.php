@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -12,7 +13,7 @@ class Conversation extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    protected $fillable = ['name', 'is_group'];
+    protected $fillable = ['name', 'is_group', 'avatar_url', 'created_by'];
 
     public function participants()
     {
@@ -22,5 +23,9 @@ class Conversation extends Model
     public function messages()
     {
         return $this->hasMany(Message::class, 'conversation_id');
+    }
+    public function participantDetails()
+    {
+        return $this->hasMany(ConversationParticipant::class, 'conversation_id', 'conversation_id');
     }
 }

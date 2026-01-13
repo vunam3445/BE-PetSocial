@@ -11,4 +11,5 @@ interface PetInterface
 
     public function deletePet(string $petId): bool;
     public function getAllPetsByUser(string $userId): array; // Optional: If you want to retrieve all pets
+    public function getAllPostsByPet(string $petId, int $limit);
 }

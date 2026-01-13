@@ -61,4 +61,8 @@ class PetService
     {
         return $this->petRepository->getAllPetsByUser($userId);
     }
+    public function getAllPostsByPet(string $petId, int $limit): array
+    {
+        return $this->petRepository->getAllPostsByPet($petId, $limit);
+    }
 }

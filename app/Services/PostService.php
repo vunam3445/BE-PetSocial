@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Group;
 use App\Repositories\PostRepository\PostInterface;
 use App\Repositories\TagRepository\TagInterface;
 use Illuminate\Support\Facades\Storage;
@@ -26,12 +27,17 @@ class PostService
     public function createPost(array $data)
     {
         return DB::transaction(function () use ($data) {
-            // ✅ 0. Kiểm tra chính chủ
             $currentUserId = Auth::id();
             if ($currentUserId !== $data['author_id']) {
-                throw new AuthorizationException('Bạn không có quyền đăng bài với user_id này.');
+                throw new AuthorizationException('Bạn không có quyền đăng bài này.');
             }
-            
+            $data['status'] = 'approved';
+            if (!empty($data['group_id'])) {
+                $group = Group::find($data['group_id']);
+                if ($group && $group->require_post_approval) {
+                    $data['status'] = 'pending';
+                }
+            }
             // 1. Tạo post
             $post = $this->postRepository->create([
                 'author_id'      => $data['author_id'],
@@ -39,6 +45,8 @@ class PostService
                 'visibility'     => $data['visibility'] ?? 'public',
                 'shared_post_id' => $data['shared_post_id'] ?? null,
                 'group_id'       => $data['group_id'] ?? null,
+                'pet_id'        => $data['pet_id'] ?? null,
+                'status'         => $data['status']
             ]);
 
             // 2. Xử lý tag
@@ -91,7 +99,8 @@ class PostService
                     'tags',
                     'sharedPost.media',
                     'sharedPost.author:user_id,name,avatar_url',
-                    'sharedPost.tags'
+                    'sharedPost.tags',
+                    'pet:pet_id,name,avatar_url'
                 ])
                 ->loadCount(['likes', 'comments']);
         });
@@ -106,10 +115,11 @@ class PostService
         array $withCount = [],
         int $limit = 20
     ) {
+        $ownerId = Auth::id();
         $query = $this->postRepository
             ->getQuery()
             ->with(array_merge($relations, ['sharedPost.media', 'sharedPost.author:user_id,name,avatar_url', 'sharedPost.tags']));
-
+        $query->whereNull('group_id');
         if (!empty($withCount)) {
             $query->withCount($withCount);
         }
@@ -127,6 +137,7 @@ class PostService
 
         return $query
             ->where($field, $value)
+            ->selectRaw('*, (author_id = ?) as is_owner', [$ownerId])
             ->orderBy('updated_at', 'desc')
             ->paginate($limit);
     }
@@ -142,6 +153,7 @@ class PostService
 
             $caption    = $data['caption'] ?? $post->caption;
             $visibility = $data['visibility'] ?? $post->visibility;
+            $status     = $data['status'] ?? 'approved';
             $newMedia   = $data['media'] ?? [];
 
             $existingMedia = $post->media; // collection
@@ -219,6 +231,7 @@ class PostService
             $post->update([
                 'caption'    => $caption,
                 'visibility' => $visibility,
+                'status'     => $status
             ]);
 
             return $post->load([
@@ -263,5 +276,13 @@ class PostService
         int $limit = 15
     ) {
         return $this->postRepository->getAllPosts($relations, $withCount, $limit);
+    }
+    public function getPostsOfGroup(string $groupId, array $relations = [], array $withCount = [], int $limit = 20)
+    {
+        return $this->postRepository->getPostsOfGroup($groupId, $relations, $withCount, $limit);
+    }
+    public function getPostsPendingOfGroup(string $groupId, array $relations = [], array $withCount = [], int $limit = 20)
+    {
+        return $this->postRepository->getPostsPendingOfGroup($groupId, $relations, $withCount, $limit);
     }
 }

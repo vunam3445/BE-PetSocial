@@ -82,10 +82,27 @@ class PostController extends Controller
     public function getAllPosts()
     {
 
-        $posts = $this->postService->getAllPosts(['media', 'author:user_id,name,avatar_url'], ['likes'], 10);
+        $posts = $this->postService->getAllPosts(['media', 'author:user_id,name,avatar_url','pet:pet_id,name,avatar_url'], ['likes'], 10);
 
         return response()->json([
             'posts' => $posts
         ]);
+    }
+
+    public function getPostsOfGroup(string $groupId)
+    {
+        $posts = $this->postService->getPostsOfGroup($groupId, [],[],20);
+        return response()->json($posts);
+    }
+        public function getPostsPendingOfGroup(string $groupId)
+    {
+        $posts = $this->postService->getPostsPendingOfGroup($groupId, [],[],20);
+        return response()->json($posts);
+    }
+
+    public function managePost(string $postId, Request $request){
+        $data = $request->all();
+        $post = $this->postService->updatePost($postId, $data);
+        return response()->json($post);
     }
 }

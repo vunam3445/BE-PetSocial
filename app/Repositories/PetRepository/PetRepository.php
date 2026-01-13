@@ -1,6 +1,11 @@
 <?php
+
 namespace App\Repositories\PetRepository;
+
 use App\Models\Pet;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+
 class PetRepository implements PetInterface
 {
     public function createPet(array $data)
@@ -14,7 +19,15 @@ class PetRepository implements PetInterface
     public function getPet(string $petId): array
     {
         // Logic to retrieve a pet by ID
-        $pet = Pet::find($petId);
+        $userId = Auth::id();
+        $pet = Pet::withCount('followers')
+            ->addSelect([
+                'is_following' => DB::table('pet_follows')
+                    ->whereColumn('pet_follows.pet_id', 'pets.pet_id')
+                    ->where('pet_follows.user_id', $userId)
+                    ->selectRaw('count(*) > 0')
+            ])
+            ->findOrFail($petId);
         if ($pet) {
             return $pet->toArray();
         }
@@ -46,5 +59,28 @@ class PetRepository implements PetInterface
     {
         $pets = Pet::where('user_id', $userId)->orderBy('created_at', 'desc')->get();
         return $pets->toArray();
+    }
+    public function getAllPostsByPet(string $petId, $limit)
+    {
+        $ownerId = Auth::id();
+
+        return Pet::find($petId)
+            ->posts()
+            ->with([
+                'media',
+                'author:user_id,name,avatar_url',
+                'tags',
+                'pet:pet_id,name,avatar_url'
+            ])
+            ->withCount([
+                'likes as is_liked' => function ($q) use ($ownerId) {
+                    $q->where('user_id', $ownerId);
+                },
+                'likes as likes_count',
+            ])
+            ->selectRaw('*, (author_id = ?) as is_owner', [$ownerId])
+            ->orderBy('created_at', 'desc')
+            ->paginate($limit)
+            ->toArray();
     }
 }

@@ -1,11 +1,12 @@
 <?php
+
 namespace App\Services;
+
 use App\Repositories\AuthRepository\AuthInterface;
+
 class AuthService
 {
-    public function __construct(private AuthInterface $authRepository)
-    {
-    }
+    public function __construct(private AuthInterface $authRepository) {}
 
     public function register(array $data)
     {
@@ -20,5 +21,19 @@ class AuthService
     public function logout(): void
     {
         $this->authRepository->logout();
+    }
+
+    public function sendOtp(array $data)
+    {
+        return $this->authRepository->sendOtp($data);
+    }
+
+    public function verifyOtp(array $data)
+    {
+        return $this->authRepository->verifyOtp($data);
+    }
+    public function confirmRegister(array $data)
+    {
+        return $this->authRepository->confirmRegister($data);
     }
 }

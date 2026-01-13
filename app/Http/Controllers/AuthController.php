@@ -21,7 +21,6 @@ class AuthController extends Controller
     public function register(AuthRequest $request)
     {
         $data = $request->validated();
-        Log::info('Registering user with data: ', $data);
         $user = $this->authService->register($data);
         if ($user) {
             return response()->json([
@@ -37,7 +36,7 @@ class AuthController extends Controller
     public function login(AuthLoginRequest $request)
     {
         $data = $request->validated();
-        $result = $this->authService->login($data); // bây giờ $result chứa cả token + user
+        $result = $this->authService->login($data);
 
         if ($result) {
             return response()->json([
@@ -82,5 +81,26 @@ class AuthController extends Controller
         } catch (\Tymon\JWTAuth\Exceptions\JWTException $e) {
             return response()->json(['message' => 'Token not provided'], 401);
         }
+    }
+    public function confirmRegister(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'otp'   => 'required|digits:6',
+        ]);
+
+        $user = $this->authService->confirmRegister($request->all());
+
+        if ($user) {
+            return response()->json($user);
+        }
+
+        return response()->json(['message' => 'OTP không hợp lệ hoặc đã hết hạn'], 400);
+    }
+    public function sendOtp(Request $request){
+        $request->validate(['email'=>'required|email']);
+        $this->authService->sendOtp($request->all());
+        return response()->json(['message' => 'Đã gửi mã OTP'], 200);
+
     }
 }

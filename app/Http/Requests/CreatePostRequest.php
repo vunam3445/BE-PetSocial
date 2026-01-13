@@ -16,6 +16,7 @@ class CreatePostRequest extends FormRequest
     {
         return [
             'author_id'      => 'required|uuid|exists:users,user_id',
+            'pet_id'        => 'nullable|uuid|exists:pets,pet_id',
             'caption'        => 'nullable|string|max:5000',
             'visibility'     => 'nullable|in:public,private,friends',
             'shared_post_id' => 'nullable|uuid|exists:posts,post_id',

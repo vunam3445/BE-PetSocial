@@ -11,15 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-                Schema::create('user_notifications', function (Blueprint $table) {
+        Schema::create('user_interest_profiles', function (Blueprint $table) {
+            $table->uuid('id')->primary();
             $table->uuid('user_id');
-            $table->uuid('notification_id');
-            $table->boolean('is_read')->default(false);
+            $table->string('tag_name');
+            $table->float('score')->default(0);
+            $table->unique(['user_id', 'tag_name']);
             $table->timestamps();
 
-            $table->primary(['user_id', 'notification_id']);
             $table->foreign('user_id')->references('user_id')->on('users');
-            $table->foreign('notification_id')->references('notification_id')->on('notifications');
+            $table->index(['user_id', 'score']); // Để tìm tag điểm cao nhanh nhất
         });
     }
 
@@ -28,6 +29,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('user_notifications');
+        //
     }
 };

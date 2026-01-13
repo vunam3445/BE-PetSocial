@@ -17,6 +17,9 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->text('avatar_url')->nullable();
             $table->text('cover_url')->nullable();
+            $table->text('visibility')->default('public');
+            $table->boolean('require_post_approval')->default(false);
+            
             $table->uuid('created_by');
             $table->timestamps();
 

@@ -22,3 +22,9 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Bỏ qua môi trường ảo Python trong thư mục ai_engine
+ai_engine/venv/
+ai_enginer/venv/
+**/venv/
+.venv/

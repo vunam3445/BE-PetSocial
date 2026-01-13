@@ -14,10 +14,12 @@ return new class extends Migration
         Schema::create('posts', function (Blueprint $table) {
             $table->uuid('post_id')->primary();
             $table->uuid('author_id');
+            $table->uuid('pet_id')->nullable();
             $table->text('caption')->nullable();
             $table->string('visibility', 15)->default('public');
             $table->uuid('shared_post_id')->nullable();
             $table->uuid('group_id')->nullable();
+            $table->enum('status', ['pending', 'approved', 'rejected'])->default('approved');
             $table->timestamps();
 
             $table->foreign('author_id')->references('user_id')->on('users');
