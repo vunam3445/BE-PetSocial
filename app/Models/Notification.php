@@ -1,27 +1,16 @@
-<?php
-
+<?php 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Notifications\DatabaseNotification;
 
-class Notification extends Model
+class Notification extends DatabaseNotification
 {
-    use HasUuids;
-
-    protected $primaryKey = 'notification_id';
-    public $incrementing = false;
+    // Quan trọng: Bảng notifications mặc định dùng UUID làm ID trong migration của bạn
     protected $keyType = 'string';
+    public $incrementing = false;
 
-    protected $fillable = ['sender_id', 'type', 'content', 'target_url'];
-
-    public function sender()
+    public function getSenderAvatarAttribute()
     {
-        return $this->belongsTo(User::class, 'sender_id');
-    }
-
-    public function receivers()
-    {
-        return $this->belongsToMany(User::class, 'user_notifications', 'notification_id', 'user_id');
+        return $this->data['avatar_url'] ?? '/default-avatar.png';
     }
 }

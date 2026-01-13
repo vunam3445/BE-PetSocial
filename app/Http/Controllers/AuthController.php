@@ -36,7 +36,7 @@ class AuthController extends Controller
     public function login(AuthLoginRequest $request)
     {
         $data = $request->validated();
-        $result = $this->authService->login($data); // bây giờ $result chứa cả token + user
+        $result = $this->authService->login($data);
 
         if ($result) {
             return response()->json([

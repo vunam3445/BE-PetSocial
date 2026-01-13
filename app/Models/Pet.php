@@ -31,8 +31,7 @@ class Pet extends Model
     public function followers()
     {
         return $this->belongsToMany(User::class, 'pet_follows', 'pet_id', 'user_id')
-            ->withPivot('followed_at')
-            ->withTimestamps();
+            ->withPivot('followed_at');
     }
     public function posts()
     {

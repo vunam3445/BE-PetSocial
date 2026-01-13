@@ -65,6 +65,11 @@ class Post extends Model
     {
         return $this->belongsTo(Pet::class, 'pet_id', 'pet_id');
     }
+    public function reports()
+    {
+        return $this->hasMany(Report::class, 'post_id');
+    }
+
         
 protected static function boot()
 {

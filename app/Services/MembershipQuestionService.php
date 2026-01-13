@@ -6,8 +6,10 @@ use App\Repositories\GroupRepository\GroupRepository;
 use App\Repositories\MemberJoinRequestRepository\MemberJoinRequestRepository;
 use App\Repositories\MembershipQuestion\MembershipRepository;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
-use League\Flysystem\Visibility;
+use App\Models\User;
+use App\Models\Group;
+use App\Notifications\GroupJoinedNotification;
+use App\Notifications\GroupRejectedNotification;
 
 class MembershipQuestionService
 {
@@ -37,11 +39,10 @@ class MembershipQuestionService
     {
         return $this->membershipRepository->getByField('group_id', $groupId, [], []);
     }
-    public function createRequest(array $data)
+    public function createRequest(string $groupId, array $answers)
     {
-        $groupId = $data['groupId'];
-        $userId  = $data['userId'];
-        $answers = $data['answers'] ?? null; // answers = [question_id => answer]
+
+        $userId  = Auth::id();
 
         $group = $this->groupRepository->find($groupId);
 
@@ -63,11 +64,12 @@ class MembershipQuestionService
         ]);
 
         // 2.2 – Tạo bản ghi group_join_answers cho từng câu hỏi
-        foreach ($answers as $questionId => $answerText) {
+        foreach ($answers as $item) {
             $this->membershipRepository->createJoinAnswer([
                 'request_id'  => $request->id,
-                'question_id' => $questionId,
-                'answer'      => $answerText
+                'question_id' => $item['question_id'],
+                'answer'      => $item['answer'],
+                'user_id'     => $userId,
             ]);
         }
 
@@ -76,14 +78,42 @@ class MembershipQuestionService
 
     public function updateRequest(int $id, $data)
     {
-        return $this->memberJoinRequest->update($id, $data);
+        $groupId = $data['group_id'] ?? null;
+        $userId = $data['user_id'] ?? null;
+        $status = $data['status'];
+        $user = User::find($userId);
+        $group = Group::find($groupId);
+
+        if ($status == 'approved') {
+            $res = $this->memberJoinRequest->update($id, ['status' => $status]);
+            $this->groupRepository->addMemberToGroup($groupId, [$userId], 'member');
+            // 3. Lấy thông tin để gửi thông báo
+
+            if ($user && $group) {
+                // GỌI TRỰC TIẾP TẠI ĐÂY
+                $user->notify(new GroupJoinedNotification($group));
+            }
+        }
+        if ($status === 'rejected') {
+            $res = $this->memberJoinRequest->delete($id);
+            if ($group && $user) {
+                $user->notify(new GroupRejectedNotification($group));
+            }
+        }
+        return $res;
     }
-    public function deleteRequest(int $id)
+    public function deleteRequest(string $groupId)
     {
-        return $this->memberJoinRequest->delete($id);
+        $userId = Auth::id();
+        return $this->memberJoinRequest->deleteRequest($groupId, $userId);
     }
     public function approveMember(string $userId, string $groupId)
     {
         return $this->groupRepository->addMemberToGroup($groupId, [$userId], 'member');
+    }
+
+    public function getJoinRequests(string $groupId)
+    {
+        return $this->memberJoinRequest->getJoinRequests($groupId, 20);
     }
 }

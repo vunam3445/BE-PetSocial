@@ -3,7 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-
+use Illuminate\Support\Facades\DB;
 return new class extends Migration
 {
     /**
@@ -15,6 +15,8 @@ return new class extends Migration
             $table->uuid('conversation_id')->primary();
             $table->string('name')->nullable();
             $table->boolean('is_group')->default(false);
+            $table->string('avatar_url')->nullable();
+            $table->uuid('created_by')->nullable(); 
             $table->timestamps();
         });
     }

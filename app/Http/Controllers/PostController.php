@@ -88,4 +88,21 @@ class PostController extends Controller
             'posts' => $posts
         ]);
     }
+
+    public function getPostsOfGroup(string $groupId)
+    {
+        $posts = $this->postService->getPostsOfGroup($groupId, [],[],20);
+        return response()->json($posts);
+    }
+        public function getPostsPendingOfGroup(string $groupId)
+    {
+        $posts = $this->postService->getPostsPendingOfGroup($groupId, [],[],20);
+        return response()->json($posts);
+    }
+
+    public function managePost(string $postId, Request $request){
+        $data = $request->all();
+        $post = $this->postService->updatePost($postId, $data);
+        return response()->json($post);
+    }
 }

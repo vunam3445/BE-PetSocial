@@ -12,9 +12,7 @@ class ProfileController extends Controller
 {
     public function __construct(private ProfileService $profileService) {}
 
-    /**
-     * Update the user's profile.
-     */
+    //Update the user's profile.
     public function update(UpdateProfileRequest $request)
     {
 
@@ -29,9 +27,7 @@ class ProfileController extends Controller
         ]);
     }
 
-    /**
-     * Get the user's profile.
-     */
+    //Get the user's profile.
     public function show(string $userId)
     {
         $user = $this->profileService->getProfile($userId);
@@ -41,9 +37,7 @@ class ProfileController extends Controller
         return response()->json($user);
     }
 
-    /**
-     * Delete the user's profile.
-     */
+    //Delete the user's profile.
     public function destroy(Request $request)
     {
         // Logic to delete user profile
@@ -57,15 +51,13 @@ class ProfileController extends Controller
 
     public function getFollowers(string $userId)
     {
-        $perPage = 10; // mặc định 10
+        $perPage = 10; 
         $followers = $this->profileService->getFollowers($userId, $perPage);
 
         return response()->json($followers);
     }
 
-    /**
-     * Lấy danh sách followings (có phân trang)
-     */
+    //Lấy danh sách followings (có phân trang)
     public function getFollowing(string $userId)
     {
         $perPage = 10;

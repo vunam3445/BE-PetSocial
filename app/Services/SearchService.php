@@ -23,11 +23,26 @@ class SearchService
 
     case 'pet':
         return $this->searchRepository->searchPets($keyword, $limit);
+    case 'group':
+        return $this->searchRepository->searchGroups($keyword, $limit);
 
     default:
         return response()->json([
             'message' => 'Invalid search type',
         ], 400);
-}
+        }
+    }
+
+    public function searchRequestJoinGroup(string $groupId, string $keyword)
+    {
+        return $this->searchRepository->searchJoinGroupRequest($groupId, $keyword);
+    }
+    public function searchUsersOfGroup(string $groupId, string $keyword)
+    {
+        return $this->searchRepository->searchUsersOfGroup($groupId, $keyword);
+    }
+    public function searchConversation(string $keyword)
+    {
+        return $this->searchRepository->searchConversation($keyword);
     }
 }

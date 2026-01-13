@@ -11,7 +11,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class GroupController extends Controller
 {
-    use AuthorizesRequests; // <-- thêm trait
+    use AuthorizesRequests; 
 
     protected $groupService;
     public function __construct(GroupService $groupService)
@@ -25,7 +25,7 @@ class GroupController extends Controller
         return response()->json($group, 201);
     }
     public function getGroupById($id)
-    {
+    {    
         $group = $this->groupService->getGroupInfo($id);
         if ($group) {
             return response()->json($group);
@@ -76,4 +76,5 @@ class GroupController extends Controller
         $members = $this->groupService->getMembers($groupId);
         return response()->json($members);
     }
+
 }

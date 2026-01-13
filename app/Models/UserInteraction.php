@@ -13,7 +13,7 @@ class UserInteraction extends Model
     public $incrementing = false;
     protected $keyType = 'string';
 
-    protected $fillable = ['user_id', 'post_id', 'action_type', 'metadata'];
+    protected $fillable = ['user_id', 'post_id', 'action_type', 'metadata','weight'];
 
     public function user()
     {
@@ -24,4 +24,7 @@ class UserInteraction extends Model
     {
         return $this->belongsTo(Post::class, 'post_id');
     }
+    protected $casts = [
+        'metadata' => 'array', // Hoặc 'json'
+    ];
 }

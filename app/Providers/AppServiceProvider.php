@@ -41,6 +41,10 @@ use App\Repositories\MembershipQuestion\MembershipInterface;
 use App\Repositories\MembershipQuestion\MembershipRepository;
 use App\Repositories\MemberJoinRequestRepository\MemberJoinRequestInterface;
 use App\Repositories\MemberJoinRequestRepository\MemberJoinRequestRepository;
+use App\Repositories\ReportRepository\ReportInterface;
+use App\Repositories\ReportRepository\ReportRepository;
+use App\Repositories\NotificationRepository\NotificationInterface;
+use App\Repositories\NotificationRepository\NotificationRepository;
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -65,6 +69,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(GroupInterface::class, GroupRepository::class);
         $this->app->bind(MembershipInterface::class, MembershipRepository::class);
         $this->app->bind(MemberJoinRequestInterface::class, MemberJoinRequestRepository::class);
+        $this->app->bind(ReportInterface::class, ReportRepository::class);
+        $this->app->bind(NotificationInterface::class, NotificationRepository::class);
     }
 
     /**
@@ -77,6 +83,12 @@ class AppServiceProvider extends ServiceProvider
         
         // routes có thể được đăng ký trong RouteServiceProvider hoặc trong routes/web.php, routes/api.php, v.v.
         // Nếu cần đăng ký routes ở đây, hãy sử dụng Route::middleware() hoặc Route::group() trực tiếp.
+
+        \App\Models\Post::observe(\App\Observers\PostObserver::class);
+        \App\Models\Comment::observe(\App\Observers\CommentObserver::class);
+        \App\Models\Like::observe(\App\Observers\LikeObserver::class);
+        \App\Models\PetFollow::observe(\App\Observers\PetFollowObserver::class);
+        \App\Models\Pet::observe(\App\Observers\PetObserver::class);
     }
     protected function configureRateLimiting()
     {

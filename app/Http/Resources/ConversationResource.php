@@ -13,6 +13,8 @@ class ConversationResource extends JsonResource
             'conversation_id' => $this->conversation_id,
             'name' => $this->name,
             'is_group' => $this->is_group,
+            'avatar_url' => $this->avatar_url,
+            'created_by' => $this->created_by,
             'participants' => $this->participants->map(fn($p) => [
                 'user_id' => $p->user_id,
                 'name' => $p->name,

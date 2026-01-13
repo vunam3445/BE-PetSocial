@@ -67,7 +67,7 @@ class PetController extends Controller
     }
     public function getAllPostsByPet(string $petId, Request $request)
     {
-        $limit = $request->query('limit', 10); // Default limit is 10
+        $limit = $request->query('limit', 10); 
         $posts = $this->petService->getAllPostsByPet($petId, $limit);
         return response()->json($posts);
     }

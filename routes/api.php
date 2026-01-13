@@ -15,7 +15,10 @@ use App\Http\Controllers\HealthCategoryController;
 use App\Http\Controllers\PetHealthLogController;
 use App\Http\Controllers\PetFollowController;
 use App\Http\Controllers\GroupController;
+use App\Http\Controllers\GroupMemberController;
 use App\Http\Controllers\MembershipQuestionController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ReportController;
 
 /*
 |--------------------------------------------------------------------------
@@ -66,6 +69,7 @@ Route::middleware('auth:api')->group(function () {
     Route::post('posts', [PostController::class, 'create']);
     Route::patch('posts/{id}', [PostController::class, 'update']);
     Route::delete('posts/{id}', [PostController::class, 'delete']);
+    Route::put('/posts/{postId}/groups',[PostController::class, 'managePost']);
     
     // Nested resource
     Route::get('users/{id}/posts', [PostController::class, 'getPostByUserId']);
@@ -101,6 +105,9 @@ Route::middleware('auth:api')->group(function () {
 
     // Search routes
     Route::get('/search', [SearchController::class, 'search']);
+    Route::get('/search/join-group-requests/{groupId}',[SearchController::class, 'searchRequestJoinGroup']);
+    Route::get('/search/groups/{groupId}/users',[SearchController::class, 'searchUsersOfGroup']);
+    Route::get('/search/conversations',[SearchController::class,'searchConversation']);
 
     // Conversation routes
     Route::get('conversations', [ConversationController::class, 'index']);
@@ -108,9 +115,12 @@ Route::middleware('auth:api')->group(function () {
     Route::get('conversations/recent', [ConversationController::class, 'recent']);
     Route::post('conversations', [ConversationController::class, 'store']);
     Route::delete('conversations/{conversationId}', [ConversationController::class, 'destroy']);
-    Route::put('conversations/{conversationId}/read', [ConversationController::class, 'update']);
-
-    // Messages (lồng trong conversations)
+    Route::get('/conversations/{conversationId}/members',[ConversationController::class,'getMemberOfConversation']);
+    Route::put('/conversations/{conversationId}/read', [ConversationController::class, 'update']);
+    Route::get('/conversations/{conversationId}/add-members',[ConversationController::class,'getMembersToInvite']);
+    Route::post('/conversations/{conversationId}/add-members',[ConversationController::class,'inviteMembers']);
+    Route::delete('/conversations/{conversationId}/members/{targetId}', [ConversationController::class, 'deleteMember']);
+    Route::put('/conversations/{conversationId}/updateInfo',[ConversationController::class,'updateConversation']);
     Route::apiResource('conversations.messages', MessageController::class)
         ->shallow();
     // shallow() cho phép gọi messages/:id thay vì conversations/:conversationId/messages/:id
@@ -150,5 +160,32 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/groups/{groupId}/questions',[MembershipQuestionController::class, 'index']);
     Route::put('/groups/questions/{questionId}',[MembershipQuestionController::class,'update']);
     Route::delete('/groups/questions/{questionId}',[MembershipQuestionController::class,'delete']);
+    Route::post('/groups/{groupId}/joinGroup',[MembershipQuestionController::class,'joinGroup']);
+    Route::get('/groups/{groupId}/joinRequests',[MembershipQuestionController::class,'getJoinRequests']);
+    Route::get('/groups/{groupId}/posts',[PostController::class, 'getPostsOfGroup']);
+    Route::get('/groups/{groupId}/postsPending',[PostController::class, 'getPostsPendingOfGroup']);
 
+
+    Route::put('/requests/{requestId}',[MembershipQuestionController::class, 'updateRequest']);
+    Route::delete('/requests/{groupId}',[MembershipQuestionController::class, 'deleteRequest']);
+
+
+    //group member routes
+    Route::delete('/groups/{groupId}/members/{userId}',[GroupMemberController::class, 'deleteMember']);
+
+
+    //reports route
+    Route::post('/reports',[ReportController::class, 'create']);
+    Route::put('/reports/{reportId}',[ReportController::class, 'update']);
+    Route::delete('/reports/{reportId}',[ReportController::class, 'delete']);
+    Route::get('/reports/groups/{groupId}',[ReportController::class, 'getReportOfGroup']);
+
+
+
+    // notification route
+    Route::get('/notifications/{userId}',[NotificationController::class,'index']);
+    Route::put('/notifications/{notificationId}/read',[NotificationController::class,'readNotification']);
+    Route::post('/notifications/handleInvitation',[ConversationController::class,'handleInvitation']);
+    
+;   
 });

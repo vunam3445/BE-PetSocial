@@ -15,9 +15,7 @@ class CommentController extends Controller
         $this->commentService = $commentService;
     }
 
-    /**
-     * Lấy danh sách comment theo post
-     */
+    // danh sach comment
     public function index(Request $request, string $postId)
     {
         $limit = $request->get('limit', 20);
@@ -27,9 +25,7 @@ class CommentController extends Controller
         return response()->json($comments);
     }
 
-    /**
-     * Tạo comment mới cho post
-     */
+    // Tạo comment mới cho post
     public function store(Request $request, string $postId)
     {
         $request->validate([
@@ -53,9 +49,7 @@ class CommentController extends Controller
         }
     }
 
-    /**
-     * Xoá comment
-     */
+    //Xoá comment
     public function destroy(string $commentId)
     {
         try {
@@ -65,7 +59,7 @@ class CommentController extends Controller
         } catch (\Throwable $e) {
             return response()->json([
                 'message' => $e->getMessage(),
-            ], 403); // forbidden nếu không phải chính chủ
+            ], 403); 
         }
     }
 

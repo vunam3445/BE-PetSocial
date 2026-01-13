@@ -6,6 +6,7 @@ use App\Models\Group;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class GroupRepository  implements GroupInterface
 {
@@ -51,9 +52,15 @@ class GroupRepository  implements GroupInterface
     public function getGroupOfUserAttended(string $userId): array
     {
         $user = User::find($userId);
+
+        if (!$user) {
+            return [];
+        }
+
         return $user->groupMemberships()
-            ->wherePivot('joined_at')
-            ->get()
+            ->wherePivot('role', 'member')
+            ->get() // Lấy dữ liệu xong (trả về Collection)
+            ->makeHidden('pivot') // Sau đó mới ẩn pivot trên Collection đó
             ->toArray();
     }
     public function addMemberToGroup(string $groupId, array $userIds, string $role): void
@@ -73,24 +80,63 @@ class GroupRepository  implements GroupInterface
     {
         $group = Group::findOrFail($groupId);
 
-        // Lấy membership của user trong group
+        /** 1. Lấy membership */
         $membership = DB::table('group_members')
             ->where('group_id', $groupId)
             ->where('user_id', $userId)
             ->first();
 
-        // Đếm tổng số thành viên đã join
+        /** 2. Đếm tổng thành viên */
         $totalMembers = DB::table('group_members')
             ->where('group_id', $groupId)
-            ->where('joined_at')
+            ->count();
+
+        /** 3. Kiểm tra join request của user hiện tại */
+        $joinRequest = DB::table('group_join_requests')
+            ->where('group_id', $groupId)
+            ->where('user_id', $userId)
+            ->orderByDesc('created_at')
+            ->first();
+
+        /** 🔥 4. Đếm số bài viết cần duyệt (status = 'pending') */
+        $pendingPostsCount = DB::table('posts')
+            ->where('group_id', $groupId)
+            ->where('status', 'pending')
+            ->count();
+
+        /** 🔥 5. Đếm số yêu cầu tham gia đang chờ (status = 'pending') */
+        $pendingJoinRequestsCount = DB::table('group_join_requests')
+            ->where('group_id', $groupId)
+            ->where('status', 'pending')
+            ->count();
+
+        /** 🔥 6. Đếm số bài viết bị báo cáo (Dùng join hoặc subquery) 
+         * Lấy số lượng bài viết độc nhất trong group này đang có ít nhất 1 report
+         */
+        $reportedPostsCount = DB::table('posts')
+            ->where('group_id', $groupId)
+            ->whereExists(function ($query) {
+                $query->select(DB::raw(1))
+                    ->from('reports')
+                    ->whereRaw('reports.post_id = posts.post_id')
+                    ->where('status', 'pending'); 
+            })
             ->count();
 
         return [
             'group' => $group,
             'member_role' => $membership->role ?? null,
             'total_members' => $totalMembers,
+            'has_join_request' => $joinRequest !== null,
+            'join_request_status' => $joinRequest->status ?? null,
+
+            // CÁC THÔNG SỐ MỚI CHO ADMIN
+            'pending_posts_count' => $pendingPostsCount,
+            'pending_join_requests_count' => $pendingJoinRequestsCount,
+            'reported_posts_count' => $reportedPostsCount,
         ];
     }
+
     public function getMembers(string $groupId, int $limit = 20)
     {
         $group = Group::findOrFail($groupId);
@@ -100,7 +146,7 @@ class GroupRepository  implements GroupInterface
             // Chỉ select cột từ bảng users
             ->select(['users.user_id', 'users.name', 'users.avatar_url'])
             // Khai báo rõ các cột muốn lấy từ bảng pivot (bảng trung gian)
-            ->withPivot(['role','joined_at'])
+            ->withPivot(['role', 'joined_at'])
             ->orderByPivot('joined_at', 'desc')
             ->paginate($limit);
 
