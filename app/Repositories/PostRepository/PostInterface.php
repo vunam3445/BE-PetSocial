@@ -24,4 +24,6 @@ interface PostInterface extends BaseInterface
         array $withCount = [],
         int $limit = 20
     );
+
+    public function resetSeed();
 }

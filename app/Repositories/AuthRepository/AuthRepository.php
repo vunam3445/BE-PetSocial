@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\OtpMail;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class AuthRepository implements AuthInterface
 {
@@ -33,14 +35,17 @@ class AuthRepository implements AuthInterface
         ]);
     }
 
-
     public function login(array $data)
     {
+        // Thử đăng nhập với thông tin email và password
         if (! $token = JWTAuth::attempt($data)) {
-            return null;
+            // Cách 1: Ném ra lỗi Validation (Khuyên dùng)
+            // Laravel sẽ tự động trả về lỗi 422 với message này
+            throw ValidationException::withMessages([
+                'login' => ['Tài khoản hoặc mật khẩu không chính xác.'],
+            ]);
         }
 
-        // Lấy user từ JWTAuth
         $user = JWTAuth::user();
 
         return [
@@ -94,13 +99,13 @@ class AuthRepository implements AuthInterface
     public function confirmRegister(array $data)
     {
         $email = $data['email'];
-    $otpInput = $data['otp'];
+        $otpInput = $data['otp'];
 
-    $cacheOtp = Cache::get("otp_{$email}");
+        $cacheOtp = Cache::get("otp_{$email}");
 
-    if (!$cacheOtp || $cacheOtp != $otpInput) {
-        return null; // sai OTP
-    }
+        if (!$cacheOtp || $cacheOtp != $otpInput) {
+            return null; // sai OTP
+        }
 
 
         // Tạo user
@@ -118,5 +123,68 @@ class AuthRepository implements AuthInterface
         Cache::forget("register_{$email}");
 
         return $user;
+    }
+    public function changePassword(string $userId, array $data)
+    {
+        $user = User::find($userId);
+
+        if (!$user) {
+            return ['status' => false, 'message' => 'Người dùng không tồn tại.'];
+        }
+
+        // Kiểm tra mật khẩu cũ
+        if (!Hash::check($data['old_password'], $user->password)) {
+            return ['status' => false, 'message' => 'Mật khẩu hiện tại không chính xác.'];
+        }
+
+        // Cập nhật mật khẩu mới
+        $user->password = bcrypt($data['new_password']);
+        $user->save();
+
+        return ['status' => true, 'message' => 'Đổi mật khẩu thành công.'];
+    }
+
+    public function confirmOtp(array $data)
+{
+    $email = $data['email'] ?? null;
+    $otpInput = $data['otp'] ?? null;
+
+    $cachedOtp = Cache::get("otp_{$email}");
+
+    if ($cachedOtp && $cachedOtp == $otpInput) {
+        // Cấp thẻ thông hành
+        Cache::put("verified_email_{$email}", true, now()->addMinutes(10));
+        
+        // PHẢI TRẢ VỀ MẢNG NHƯ THẾ NÀY
+        return [
+            'status' => true,
+            'message' => 'Xác thực mã OTP thành công.'
+        ];
+    }
+
+    return [
+        'status' => false,
+        'message' => 'Mã OTP không chính xác hoặc đã hết hạn.'
+    ];
+}
+
+    public function resetPassword(array $data)
+    {
+        $email = $data['email'];
+
+        // Kiểm tra xem đã qua bước xác thực OTP chưa
+        if (!Cache::has("verified_email_{$email}")) {
+            return ['status' => false, 'message' => 'Bạn chưa xác thực mã OTP hoặc phiên làm việc đã hết hạn.'];
+        }
+
+        // Nếu có "thẻ thông hành", tiến hành đổi mật khẩu
+        $user = User::where('email', $email)->first();
+        $user->password = bcrypt($data['new_password']);
+        $user->save();
+
+        // Đổi xong thì hủy thẻ luôn
+        Cache::forget("verified_email_{$email}");
+
+        return ['status' => true, 'message' => 'Mật khẩu đã được cập nhật.'];
     }
 }

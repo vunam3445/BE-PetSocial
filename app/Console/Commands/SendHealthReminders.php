@@ -60,16 +60,17 @@ class SendHealthReminders extends Command
             $user = $pet->user;
 
             // 2. Kiểm tra tránh gửi trùng (giới hạn 1 thông báo/loại/ngày)
+            // 2. Kiểm tra tránh gửi trùng (ép kiểu text sang jsonb để truy vấn)
             $alreadyNotified = $user->notifications()
-                ->where('data->pet_id', $petId)
-                ->where('data->category_id', $category->category_id)
+                ->whereRaw("data::jsonb->>'pet_id' = ?", [$petId])
+                ->whereRaw("data::jsonb->>'category_id' = ?", [$category->category_id])
                 ->where('created_at', '>=', now()->startOfDay())
                 ->exists();
 
             if (!$alreadyNotified) {
                 // 3. Gửi thông báo bằng class Notification đã cấu hình
                 $user->notify(new HealthReminderNotification($pet, $category, $dueDate));
-                
+
                 $this->line("Đã gửi thông báo cho bé {$pet->name} tới user {$user->name}");
             }
         }

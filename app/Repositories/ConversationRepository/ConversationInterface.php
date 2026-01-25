@@ -14,5 +14,5 @@ interface ConversationInterface extends BaseInterface
     public function getMemberOfConversation(string $conversationId);
     public function getMembersToInvite(string $conversationId, int $limit);
     public function addParticipants(string $conversationId, array $userIds);
-    
+    public function changeRole(string $conversationId, string $tagetId);
 }

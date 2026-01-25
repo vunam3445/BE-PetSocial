@@ -40,15 +40,19 @@ class HealthCategory extends Model
         });
     }
 
-    // 🧩 Quan hệ: Một HealthCategory có thể được tạo bởi 1 user
+    //Quan hệ: Một HealthCategory có thể được tạo bởi 1 user
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    // 🩺 Quan hệ: Một category có thể có nhiều bản ghi log
+    //Quan hệ: Một category có thể có nhiều bản ghi log
     public function healthLogs()
     {
         return $this->hasMany(PetHealthLog::class, 'category_id');
+    }
+    public function pet()
+    {
+        return $this->belongsTo(Pet::class, 'pet_id', 'pet_id');
     }
 }

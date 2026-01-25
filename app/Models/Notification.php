@@ -5,7 +5,7 @@ use Illuminate\Notifications\DatabaseNotification;
 
 class Notification extends DatabaseNotification
 {
-    // Quan trọng: Bảng notifications mặc định dùng UUID làm ID trong migration của bạn
+    
     protected $keyType = 'string';
     public $incrementing = false;
 

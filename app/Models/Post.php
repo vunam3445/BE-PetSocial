@@ -36,7 +36,7 @@ class Post extends Model
     }
     public function sharedPost()
     {
-    return $this->belongsTo(Post::class, 'shared_post_id', 'post_id');
+        return $this->belongsTo(Post::class, 'shared_post_id', 'post_id');
     }
     public function comments()
     {
@@ -46,11 +46,11 @@ class Post extends Model
     {
         return $this->hasMany(Like::class, 'post_id');
     }
-    
+
     public function tags()
     {
         return $this->belongsToMany(Tag::class, 'post_tags', 'post_id', 'tag_id')
-        ->withTimestamps();
+            ->withTimestamps();
     }
     public function interactions()
     {
@@ -67,18 +67,18 @@ class Post extends Model
     }
     public function reports()
     {
-        return $this->hasMany(Report::class, 'post_id');
+        return $this->morphMany(Report::class, 'reportable');
     }
 
-        
-protected static function boot()
-{
-    parent::boot();
 
-    static::creating(function ($model) {
-        if (empty($model->post_id)) {
-            $model->post_id = (string) Str::uuid();
-        }
-    });
-}
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (empty($model->post_id)) {
+                $model->post_id = (string) Str::uuid();
+            }
+        });
+    }
 }

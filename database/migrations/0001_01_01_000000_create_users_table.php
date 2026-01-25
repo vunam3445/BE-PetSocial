@@ -23,6 +23,7 @@ return new class extends Migration
             $table->date('date_of_birth')->nullable();   // ngày sinh
             $table->enum('gender', ['male', 'female', 'unknown'])->default('unknown');
             $table->timestamps();
+            $table->index('name');
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

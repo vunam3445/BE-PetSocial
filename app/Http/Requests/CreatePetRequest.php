@@ -16,8 +16,6 @@ class CreatePetRequest extends FormRequest
 
     /**
      * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
@@ -25,20 +23,37 @@ class CreatePetRequest extends FormRequest
             'name' => 'required|string|max:255',
             'type' => 'required|string|max:100',
             'breed' => 'required|string|max:100',
-            'gender' => 'required|in:male,female,unknown', // hoặc: 'nam,nữ'
+            'gender' => 'required|in:male,female,unknown',
             'birthday' => 'required|date|before:today',
-            'avatar_url' => 'required|nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            // Tăng lên 5MB (5120 KB)
+            'avatar_url' => 'required|image|mimes:jpeg,png,jpg,webp|max:5120',
         ];
     }
+
+    /**
+     * Tùy chỉnh thông báo lỗi bằng tiếng Việt
+     */
     public function messages(): array
     {
         return [
-            'name.required' => 'Pet name is required',
-            'type.required' => 'Pet type is required',
-            'breed.required' => 'Pet breed is required',
-            'gender.required' => 'Pet gender is required',
-            'birthday.required' => 'Pet birthday is required',
-            'avatar_url.image' => 'Avatar must be an image file',
+            'name.required' => 'Vui lòng nhập tên thú cưng.',
+            'name.max' => 'Tên thú cưng không được quá 255 ký tự.',
+            
+            'type.required' => 'Vui lòng chọn loại thú cưng.',
+            
+            'breed.required' => 'Vui lòng nhập giống loài.',
+            
+            'gender.required' => 'Vui lòng chọn giới tính.',
+            'gender.in' => 'Giới tính không hợp lệ.',
+            
+            'birthday.required' => 'Vui lòng chọn ngày sinh.',
+            'birthday.date' => 'Ngày sinh không đúng định dạng.',
+            'birthday.before' => 'Ngày sinh phải là một ngày trong quá khứ.',
+            
+            'avatar_url.required' => 'Vui lòng chọn ảnh đại diện.',
+            'avatar_url.image' => 'Tệp tải lên phải là hình ảnh.',
+            'avatar_url.mimes' => 'Ảnh phải có định dạng: jpeg, png, jpg hoặc webp.',
+            'avatar_url.max' => 'Kích thước ảnh không được vượt quá 5MB.',
         ];
     }
 }

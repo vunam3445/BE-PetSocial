@@ -33,7 +33,7 @@ class HealthCategoryRepository extends BaseRepository implements HealthCategoryI
                     });
             })
             ->with(['healthLogs' => function ($query) use ($petId) {
-                $query->where('pet_id', $petId)->orderBy('recorded_at', 'desc');
+                $query->where('pet_id', $petId)->orderBy('created_at', 'desc');
             }])
             ->orderBy('name')
             ->get();

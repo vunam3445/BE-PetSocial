@@ -36,4 +36,17 @@ class AuthService
     {
         return $this->authRepository->confirmRegister($data);
     }
+
+    public function changePassword(string $userId, array $data)
+    {
+        return $this->authRepository->changePassword($userId, $data);
+    }
+    public function resetPassword(array $data)
+    {
+        return $this->authRepository->resetPassword($data);
+    }
+    public function confirmOtp(array $data)
+    {
+        return $this->authRepository->confirmOtp($data);
+    }
 }

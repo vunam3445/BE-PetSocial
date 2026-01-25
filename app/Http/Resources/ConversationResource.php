@@ -14,7 +14,7 @@ class ConversationResource extends JsonResource
             'name' => $this->name,
             'is_group' => $this->is_group,
             'avatar_url' => $this->avatar_url,
-            'created_by' => $this->created_by,
+            'my_role' => $this->my_role ?? $this->resource->my_role,
             'participants' => $this->participants->map(fn($p) => [
                 'user_id' => $p->user_id,
                 'name' => $p->name,

@@ -36,7 +36,7 @@ class MessageService
             'message_type'    => $media ? 'media' : 'text',
             'reply_to_id'     => $replyToId,
         ]);
-        $message->load(['sender:user_id,avatar_url']);
+        $message->load(['sender:user_id,avatar_url,name']);
         // Chỉ update last_reply_at cho người gửi
         $this->conversationRepo->updateParticipant($conversationId, $userId, [
             'last_reply_at' => now()

@@ -35,7 +35,7 @@ class GroupRepository  implements GroupInterface
         return true;
     }
 
-    public function getGroupsByUserId(string $userId): array
+    public function getGroupsByUserId(string $userId, int $perPage = 10)
     {
         return Group::query()
             ->where('created_by', $userId)
@@ -45,23 +45,24 @@ class GroupRepository  implements GroupInterface
                     ->where('gm.user_id', $userId)
                     ->where('gm.role', 'admin');
             })
-            ->get()
-            ->toArray();
+            ->orderBy('created_at', 'desc') // Nên có orderBy khi phân trang
+            ->paginate($perPage); // Trả về LengthAwarePaginator
     }
 
-    public function getGroupOfUserAttended(string $userId): array
+    public function getGroupOfUserAttended(string $userId, int $perPage = 10)
     {
         $user = User::find($userId);
 
         if (!$user) {
-            return [];
+            return null; // Hoặc ném ngoại lệ tùy logic của bạn
         }
 
+        // Với quan hệ BelongsToMany, paginate sẽ tự xử lý
         return $user->groupMemberships()
             ->wherePivot('role', 'member')
-            ->get() // Lấy dữ liệu xong (trả về Collection)
-            ->makeHidden('pivot') // Sau đó mới ẩn pivot trên Collection đó
-            ->toArray();
+            ->orderBy('group_members.created_at', 'desc')
+            ->paginate($perPage)
+            ->makeHidden('pivot');
     }
     public function addMemberToGroup(string $groupId, array $userIds, string $role): void
     {
@@ -79,7 +80,7 @@ class GroupRepository  implements GroupInterface
     public function getGroupById(string $groupId, string $userId): array
     {
         $group = Group::findOrFail($groupId);
-
+        $postClass = \App\Models\Post::class;
         /** 1. Lấy membership */
         $membership = DB::table('group_members')
             ->where('group_id', $groupId)
@@ -115,14 +116,16 @@ class GroupRepository  implements GroupInterface
          */
         $reportedPostsCount = DB::table('posts')
             ->where('group_id', $groupId)
-            ->whereExists(function ($query) {
+            ->whereExists(function ($query) use ($postClass) {
                 $query->select(DB::raw(1))
                     ->from('reports')
-                    ->whereRaw('reports.post_id = posts.post_id')
-                    ->where('status', 'pending'); 
+                    // So khớp id bài viết với reportable_id
+                    ->whereRaw('reports.reportable_id = posts.post_id')
+                    // Bắt buộc kiểm tra đúng loại là Post
+                    ->where('reports.reportable_type', $postClass)
+                    ->where('reports.status', 'pending');
             })
             ->count();
-
         return [
             'group' => $group,
             'member_role' => $membership->role ?? null,

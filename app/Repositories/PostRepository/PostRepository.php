@@ -6,6 +6,8 @@ use App\Repositories\Base\BaseRepository;
 use App\Models\Post;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
+
 class PostRepository extends BaseRepository implements PostInterface
 {
     public function __construct(Post $model)
@@ -18,97 +20,108 @@ class PostRepository extends BaseRepository implements PostInterface
         return $this->model->newQuery();
     }
 
-    public function getAllPosts(array $relations = [], array $withCount = [], int $limit = 20) {
+   public function getAllPosts(array $relations = [], array $withCount = [], int $limit = 20)
+{
     $userId = Auth::id();
-    $preferredPostIds = [];
+    $query = $this->getQuery(); // Đảm bảo query xuất phát từ Model Post
+
+    // 1. Cấu hình cơ bản (Status, Visibility, Recency)
+    $query->where('posts.status', 'approved')
+          ->where('posts.visibility', '!=', 'private')
+          ->where('posts.created_at', '>=', now()->subDays(7));
+
+    // 2. Quyền xem Group
+    $query->where(function ($q) use ($userId) {
+        $q->whereNull('posts.group_id')
+          ->orWhereExists(function ($subQuery) use ($userId) {
+              $subQuery->select(DB::raw(1))
+                  ->from('groups')
+                  ->whereColumn('groups.group_id', 'posts.group_id')
+                  ->where(function ($g) use ($userId) {
+                      $g->where('groups.visibility', '!=', 'private');
+                      if ($userId) {
+                          $g->orWhereExists(function ($m) use ($userId) {
+                              $m->select(DB::raw(1))
+                                ->from('group_members')
+                                ->whereColumn('group_members.group_id', 'groups.group_id')
+                                ->where('group_members.user_id', $userId);
+                          });
+                      }
+                  });
+          });
+    });
 
     if ($userId) {
-        // 1. Lấy Top 3 Tags dựa trên xu hướng mới nhất (updated_at) và điểm số (score)
-        $topTags = DB::table('user_interest_profiles')
+        // Seed cho Random
+        $seedKey = 'feed_seed_' . $userId;
+        $seed = Cache::remember($seedKey, now()->addMinutes(30), fn() => rand(-1000, 1000) / 1000);
+        DB::statement("SELECT setseed($seed)");
+
+        // Lấy Tags
+        $topTagNames = DB::table('user_interest_profiles')
             ->where('user_id', $userId)
             ->where('score', '>', 0)
-            ->orderBy('updated_at', 'desc') // Tag vừa tương tác (Thằn lằn) lên trước
-            ->orderBy('score', 'desc')
+            ->orderByDesc('score')
             ->limit(3)
-            ->get();
+            ->pluck('tag_name')
+            ->toArray();
+        $tagInSql = !empty($topTagNames) ? "'" . implode("','", array_map(fn($t) => addslashes($t), $topTagNames)) . "'" : "''";
 
-        if ($topTags->isNotEmpty()) {
-            /** * 2. Phân bổ Quota (Hạn mức) cho 20 bài:
-             * Tag 1 (Hot nhất): 8 bài (40%)
-             * Tag 2: 4 bài (20%)
-             * Tag 3: 2 bài (10%)
-             * Còn lại 6 bài (30%) dành cho ngẫu nhiên khám phá.
-             */
-            $quotas = [0 => 8, 1 => 4, 2 => 2];
+        // 3. Tính điểm và Rank ngay trong SELECT của Eloquent
+        // Sử dụng các cột bí danh (alias) ở đây
+        $query->select('posts.*')
+            ->selectRaw("
+                (
+                    (CASE WHEN posts.pet_id IS NOT NULL AND EXISTS (SELECT 1 FROM pet_follows pf WHERE pf.user_id = ? AND pf.pet_id = posts.pet_id) THEN 120 ELSE 0 END) +
+                    (CASE WHEN EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.followed_id = posts.author_id) THEN 100 ELSE 0 END) +
+                    (CASE WHEN posts.group_id IS NOT NULL AND EXISTS (SELECT 1 FROM group_members gm WHERE gm.user_id = ? AND gm.group_id = posts.group_id) THEN 80 ELSE 0 END) +
+                    (CASE WHEN EXISTS (SELECT 1 FROM post_tags pt JOIN tags t ON pt.tag_id = t.tag_id WHERE pt.post_id = posts.post_id AND t.name IN ($tagInSql)) THEN 50 ELSE 0 END) + 10
+                ) as base_score
+            ", [$userId, $userId, $userId])
+            ->selectRaw("
+                ROW_NUMBER() OVER(
+                    PARTITION BY COALESCE(posts.group_id, '00000000-0000-0000-0000-000000000000'::uuid), posts.author_id 
+                    ORDER BY posts.created_at DESC
+                ) as rank_in_source
+            ")
+            ->selectRaw("(posts.author_id = ?) as is_owner", [$userId]);
 
-            foreach ($topTags as $index => $tag) {
-                $tagQuota = $quotas[$index] ?? 0;
+        // 4. Sắp xếp: Vì không dùng Subquery được với withCount, ta phải copy lại biểu thức tính toán vào OrderBy
+        // Đây là cách duy nhất để tránh lỗi 'column base_score does not exist' mà không làm hỏng withCount
+        $scoreExpression = "
+            (
+                (CASE WHEN posts.pet_id IS NOT NULL AND EXISTS (SELECT 1 FROM pet_follows pf WHERE pf.user_id = '$userId' AND pf.pet_id = posts.pet_id) THEN 120 ELSE 0 END) +
+                (CASE WHEN EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = '$userId' AND f.followed_id = posts.author_id) THEN 100 ELSE 0 END) +
+                (CASE WHEN posts.group_id IS NOT NULL AND EXISTS (SELECT 1 FROM group_members gm WHERE gm.user_id = '$userId' AND gm.group_id = posts.group_id) THEN 80 ELSE 0 END) +
+                (CASE WHEN EXISTS (SELECT 1 FROM post_tags pt JOIN tags t ON pt.tag_id = t.tag_id WHERE pt.post_id = posts.post_id AND t.name IN ($tagInSql)) THEN 50 ELSE 0 END) + 10
+            )
+        ";
+        
+        $rankExpression = "ROW_NUMBER() OVER(PARTITION BY COALESCE(posts.group_id, '00000000-0000-0000-0000-000000000000'::uuid), posts.author_id ORDER BY posts.created_at DESC)";
 
-                $ids = DB::table('posts')
-                    ->join('post_tags', 'posts.post_id', '=', 'post_tags.post_id')
-                    ->join('tags', 'post_tags.tag_id', '=', 'tags.tag_id')
-                    ->where('tags.name', $tag->tag_name)
-                    ->where('posts.status', 'approved')
-                    ->where('posts.visibility', '!=', 'private')
-                    ->where('posts.author_id', '!=', $userId)
-                    // Tránh lấy trùng bài viết nếu một bài có nhiều tag trong top 3
-                    ->whereNotIn('posts.post_id', $preferredPostIds) 
-                    ->orderBy('posts.created_at', 'desc')
-                    ->limit($tagQuota)
-                    ->pluck('posts.post_id')
-                    ->toArray();
+        $query->orderByRaw("-log(1 - RANDOM()) / (GREATEST($scoreExpression - ($rankExpression - 1) * 20, 1)) ASC");
 
-                $preferredPostIds = array_merge($preferredPostIds, $ids);
-            }
-        }
+    } else {
+        $query->select('posts.*')->selectRaw("0 as base_score, 1 as rank_in_source, false as is_owner");
+        $query->orderByDesc('posts.created_at');
     }
 
-    // 3. Lấy bài viết NGẪU NHIÊN để lấp đầy limit 20 bài
-    // (Bao gồm 6 bài mặc định + bài bù đắp nếu các tag trên không đủ bài)
-    $finalRandomLimit = $limit - count($preferredPostIds);
-    
-    $randomPostIds = DB::table('posts')
-        ->where('status', 'approved')
-        ->where('visibility', '!=', 'private')
-        ->where('author_id', '!=', $userId)
-        ->whereNotIn('post_id', $preferredPostIds)
-        ->inRandomOrder()
-        ->limit($finalRandomLimit)
-        ->pluck('post_id')
-        ->toArray();
-
-    // 4. Gộp và TRỘN (Shuffle) để các bài cùng tag không nằm cạnh nhau
-    $allPostIds = array_merge($preferredPostIds, $randomPostIds);
-    if (empty($allPostIds)) {
-        return $this->getQuery()->where('post_id', null)->paginate($limit);
-    }
-    
-    shuffle($allPostIds); // Cực kỳ quan trọng để bảng tin đa dạng
-
-    // 5. Query lấy dữ liệu chi tiết
-    $query = $this->getQuery()
-        ->whereIn('post_id', $allPostIds)
-        ->with(array_merge($relations, [
-            'sharedPost.media',
-            'sharedPost.author:user_id,name,avatar_url',
-            'sharedPost.tags'
-        ]));
+    // 5. Eager Loading & Counts (Sẽ hoạt động vì Query xuất phát từ Model Post chuẩn)
+    $query->with(array_merge($relations, [
+        'group:group_id,name',
+        'sharedPost.media',
+        'sharedPost.author:user_id,name,avatar_url',
+        'tags'
+    ]));
 
     if ($userId) {
         $query->withCount(array_merge($withCount, [
             'comments',
-            'likes as is_liked' => function ($q) use ($userId) {
-                $q->where('user_id', $userId);
-            }
+            'likes as is_liked' => fn($q) => $q->where('user_id', $userId)
         ]));
     }
 
-    // 6. Sắp xếp theo thứ tự đã trộn (PostgreSQL)
-    $idsString = implode(',', array_map(fn($id) => "'$id'", $allPostIds));
-    $query->orderByRaw("position(post_id::text in ?)", [$idsString]);
-
-    return $query->selectRaw('*, (author_id = ?) as is_owner', [$userId])
-                 ->paginate($limit);
+    return $query->paginate($limit);
 }
     public function getPostsOfGroup(
         string $groupId,
@@ -150,7 +163,7 @@ class PostRepository extends BaseRepository implements PostInterface
 
         return $query
             ->orderBy('updated_at', 'desc')
-            ->paginate($limit);
+            ->paginate(10);
     }
     public function getPostsPendingOfGroup(
         string $groupId,
@@ -168,7 +181,8 @@ class PostRepository extends BaseRepository implements PostInterface
                 'author:user_id,name,avatar_url',
                 'sharedPost.media',
                 'sharedPost.author:user_id,name,avatar_url',
-                'sharedPost.tags'
+                'sharedPost.tags',
+                'pet:pet_id,name,avatar_url'
             ]));
 
         // Optional withCount từ FE
@@ -192,5 +206,10 @@ class PostRepository extends BaseRepository implements PostInterface
         return $query
             ->orderBy('updated_at', 'desc')
             ->paginate($limit);
+    }
+    public function resetSeed()
+    {
+        $userId = Auth::id();
+        Cache::forget('feed_seed_' . ($userId ?? 'guest'));
     }
 }

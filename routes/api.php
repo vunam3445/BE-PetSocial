@@ -19,7 +19,6 @@ use App\Http\Controllers\GroupMemberController;
 use App\Http\Controllers\MembershipQuestionController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReportController;
-
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -38,6 +37,8 @@ Route::prefix('auth')->group(function () {
     Route::post('refresh', [AuthController::class, 'refresh']);
     Route::post('confirm-register', [AuthController::class, 'confirmRegister']);
     Route::post('sendOtp',[AuthController::class,'sendOtp']);
+    Route::post('confirmOtp',[AuthController::class,'confirmOtp']);
+    Route::post('resetPassword',[AuthController::class,'resetPassword']);
     Route::middleware('auth:api')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
 
@@ -51,6 +52,7 @@ Route::middleware('auth:api')->group(function () {
     //Profile Routes
     Route::get('/profile/{id}', [ProfileController::class, 'show']);
     Route::post('/users/{id}/updateProfile', [ProfileController::class, 'update']);
+    Route::put('/users/{userId}/changePassword',[AuthController::class,'changePassword']);
     //pet Routes
     // Lấy danh sách pet theo user_id (nếu có)
     Route::get('pets/user/{userId}', [PetController::class, 'getAllPetsByUser']);
@@ -70,7 +72,7 @@ Route::middleware('auth:api')->group(function () {
     Route::patch('posts/{id}', [PostController::class, 'update']);
     Route::delete('posts/{id}', [PostController::class, 'delete']);
     Route::put('/posts/{postId}/groups',[PostController::class, 'managePost']);
-    
+    Route::post('/posts/refresh', [PostController::class, 'refreshFeed']);
     // Nested resource
     Route::get('users/{id}/posts', [PostController::class, 'getPostByUserId']);
 
@@ -121,6 +123,8 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/conversations/{conversationId}/add-members',[ConversationController::class,'inviteMembers']);
     Route::delete('/conversations/{conversationId}/members/{targetId}', [ConversationController::class, 'deleteMember']);
     Route::put('/conversations/{conversationId}/updateInfo',[ConversationController::class,'updateConversation']);
+    Route::put('/conversations/{conversationId}/changeRole/users/{targetId}',[ConversationController::class,'changeRole']);
+    Route::delete('/conversations/{conversationId}/delete',[ConversationController::class,'delete']);
     Route::apiResource('conversations.messages', MessageController::class)
         ->shallow();
     // shallow() cho phép gọi messages/:id thay vì conversations/:conversationId/messages/:id
@@ -175,10 +179,10 @@ Route::middleware('auth:api')->group(function () {
 
 
     //reports route
-    Route::post('/reports',[ReportController::class, 'create']);
-    Route::put('/reports/{reportId}',[ReportController::class, 'update']);
-    Route::delete('/reports/{reportId}',[ReportController::class, 'delete']);
-    Route::get('/reports/groups/{groupId}',[ReportController::class, 'getReportOfGroup']);
+    Route::post('/reports',[ReportController::class,'create']);
+    Route::put('/reports/update-status',[ReportController::class,'bulkUpdateStatus']);
+    Route::delete('/reports/bulk-delete',[ReportController::class,'bulkDelete']);
+    Route::get('/reports/groups/{groupId}',[ReportController::class,'getReportOfGroup']);
 
 
 

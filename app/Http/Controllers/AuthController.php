@@ -8,10 +8,13 @@ use App\Services\AuthService;
 use App\Http\Requests\AuthRequest;
 use Illuminate\Support\Facades\Log;
 use Tymon\JWTAuth\Facades\JWTAuth;
-
+use Illuminate\Support\Facades\Auth;
+use App\Models\User;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class AuthController extends Controller
 {
+    use AuthorizesRequests;
     protected $authService;
 
     public function __construct(AuthService $authService)
@@ -97,10 +100,89 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'OTP không hợp lệ hoặc đã hết hạn'], 400);
     }
-    public function sendOtp(Request $request){
-        $request->validate(['email'=>'required|email']);
+    public function sendOtp(Request $request)
+    {
+        $request->validate(
+            ['email' => 'required|email'],
+            [
+                'email.required' => 'Vui lòng nhập địa chỉ email.',
+                'email.email' => 'Địa chỉ email không đúng định dạng.',
+            ]
+        );
+
         $this->authService->sendOtp($request->all());
         return response()->json(['message' => 'Đã gửi mã OTP'], 200);
+    }
 
+    // AuthController.php
+    public function changePassword(Request $request, string $userId)
+    {
+        // 1. Tìm user mục tiêu dựa trên ID truyền vào
+        $targetUser = User::findOrFail($userId);
+
+        // 2. Kiểm tra Policy (Sẽ ném ra lỗi 403 nếu không phải chính chủ)
+        $this->authorize('update', $targetUser);
+        $request->validate([
+            'old_password' => 'required',
+            'new_password' => 'required|min:6',
+            'confirm_password' => 'required|same:new_password',
+        ], [
+            'new_password.min' => 'Mật khẩu mới phải có ít nhất 6 ký tự.',
+            'confirm_password.same' => 'Mật khẩu xác nhận không khớp.',
+        ]);
+
+        $userId = Auth::id(); // Lấy ID từ JWT Token
+        $result = $this->authService->changePassword($userId, $request->all());
+
+        if (!$result['status']) {
+            return response()->json(['message' => $result['message']], 400);
+        }
+
+        return response()->json(['message' => $result['message']], 200);
+    }
+
+  public function confirmOtp(Request $request)
+{
+    $request->validate([
+        'email' => 'required|email',
+        'otp'   => 'required|digits:6',
+    ]);
+
+    $result = $this->authService->confirmOtp($request->all());
+
+    // Dòng 156 sẽ hoạt động nếu $result là mảng
+    if (isset($result['status']) && $result['status']) {
+        return response()->json([
+            'message' => $result['message']
+        ], 200);
+    }
+
+    return response()->json([
+        'message' => $result['message'] ?? 'Xác thực thất bại'
+    ], 400);
+}
+    // 2. Hàm đặt lại mật khẩu mới
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email'            => 'required|email',
+            'new_password'     => 'required|min:6',
+            'confirm_password' => 'required|same:new_password',
+        ], [
+            'new_password.min'      => 'Mật khẩu mới phải từ 6 ký tự.',
+            'confirm_password.same' => 'Mật khẩu xác nhận không khớp.',
+        ]);
+
+        $result = $this->authService->resetPassword($request->all());
+
+        if ($result['status']) {
+            return response()->json([
+                'message' => $result['message']
+            ], 200);
+        }
+
+        return response()->json([
+            'message' => $result['message']
+        ], 400);
     }
 }

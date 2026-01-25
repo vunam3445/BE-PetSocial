@@ -1,17 +1,12 @@
 import pandas as pd
 from sqlalchemy import create_engine, text
-import json
 import uuid
-import re
+import json
 from datetime import datetime
 from sentence_transformers import SentenceTransformer, util
 import torch
 
-# 1. KHỞI TẠO MODEL
-print("--- [AI ENGINE] Đang khởi động mô hình ngôn ngữ BERT... ---")
-# Model đa ngôn ngữ hỗ trợ tốt Tiếng Việt và Tiếng Anh
-model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
-
+# --- CẤU HÌNH ---
 DB_CONFIG = {
     'user': 'postgres',
     'pass': '123456',
@@ -20,152 +15,144 @@ DB_CONFIG = {
     'name': 'PetSocial'
 }
 
-# --- GIẢI PHÁP TÁCH TỪ VÀ CHUẨN HÓA HASHTAG ---
-def segment_hashtag(tag):
-    tag = tag.lower().replace('#', '').strip()
-    
-    # Danh sách từ khóa cốt lõi phong phú
-    core_keywords = [
-        'cho', 'meo', 'cun', 'miu', 'husky', 'poodle', 'pug', 'corgi', 'shiba', 'phoc', 
-        'thanlan', 'thannlan', 'than', 'lan', 'bo_sat', 'ran', 'rua', 'ky_nhong', 'tac_ke',
-        'chim', 'vet', 'khuyen', 'yen_phung', 'ga_canh',
-        'ca_canh', 'ca_koi', 'thuy_sinh', 'tep', 'ha_ma',
-        'hamster', 'soc', 'tho', 'chuot_lang', 'guinea_pig', 'nhim',
-        'chamsoc', 'nuoi', 'day', 'huanluyen', 'tam', 'rua', 'vesinh',
-        'cat_tia', 'spa', 'lamdep', 'grooming', 'massage',
-        'kham', 'benh', 'y_te', 'thu_y', 'thuy', 'tiem_phong', 'vacxin', 
-        'diet_ve', 'tay_giun', 'tri_benh', 'suckhoe',
-        'thucan', 'pate', 'hat', 'xuong_gam', 'banh_thuong', 'snack', 'dinhduong',
-        'dodung', 'phukien', 'vong_co', 'day_dat', 'ao_quan', 'thoitrang',
-        'chuong', 'long', 'nem', 'o_nam', 'tui_van_chuyen', 'balo',
-        'do_choi', 'cat_meo', 'khay_ve_sinh', 'bat_an',
-        'didao', 'offline', 'clb', 'hoi_nhom', 'cuu_tro', 'nhan_nuoi', 'adopt',
-        'funny', 'hai_huoc', 'dang_yeu', 'cute', 'meme', 'trending', 
-        'khoe_pet', 'trai_nghiem', 'review', 'checkin', 'coffee_pet'
-    ]
-
-    core_keywords.sort(key=len, reverse=True)
-    
-    segmented = tag
-    for word in core_keywords:
-        if word in segmented:
-            segmented = segmented.replace(word, f" {word} ")
-    
-    # Bước cực kỳ quan trọng: Chuẩn hóa từ không dấu phổ biến để AI không nhầm lẫn
-    # 'cho' -> 'chó', 'meo' -> 'mèo', 'than' -> 'thằn'
-    result = " ".join(segmented.split())
-    result = result.replace('cho', 'chó').replace('meo', 'mèo').replace('than', 'thằn')
-    
-    return result
+# Khởi tạo Model (Nên để global để tránh load lại nhiều lần)
+print("--- [AI ENGINE] Đang khởi động mô hình NLP... ---")
+model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
 
 def get_engine():
     return create_engine(f"postgresql://{DB_CONFIG['user']}:{DB_CONFIG['pass']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['name']}")
 
+# --- TỐI ƯU HÀM TÁCH HASHTAG ---
+def segment_hashtag(tag):
+    tag = tag.lower().replace('#', '').strip()
+    # Danh sách từ khóa cốt lõi (Có thể mở rộng thêm)
+    replacements = {
+    # Nhóm loài chính (Core Species)
+    'cho': 'chó', 'meo': 'mèo', 'thanlan': 'thằn lằn', 'chim': 'chim', 
+    'ca': 'cá', 'chuot': 'chuột', 'tho': 'thỏ', 'rua': 'rùa', 'ran': 'rắn',
+    'hamster': 'chuột hamster', 'soc': 'sóc', 'nhim': 'nhím', 'ba_sat': 'bò sát',
+
+    # Nhóm giống chó phổ biến (Dog Breeds)
+    'poodle': 'chó poodle', 'pug': 'chó pug', 'husky': 'chó husky', 
+    'corgi': 'chó corgi', 'shiba': 'chó shiba', 'phoc': 'chó phốc', 
+    'golden': 'chó golden', 'becgie': 'chó becgie', 'pitbull': 'chó pitbull',
+
+    # Nhóm sức khỏe & Y tế (Health & Medical)
+    'kham': 'khám bệnh', 'tiem': 'tiêm phòng', 'vacxin': 'vắc xin', 
+    'trietsan': 'triệt sản', 'thuy': 'thú y', 'giun': 'tẩy giun', 
+    've': 'diệt ve rận', 'suckhoe': 'sức khỏe', 'benh': 'bệnh lý',
+
+    # Nhóm dịch vụ & Chăm sóc (Services & Care)
+    'tam': 'tắm rửa', 'tia': 'cắt tỉa lông', 'spa': 'spa thú cưng', 
+    'grooming': 'grooming', 'massage': 'massage thú cưng', 'huanluyen': 'huấn luyện',
+    'day': 'dạy thú cưng', 'khachsan': 'khách sạn thú cưng', 'thue': 'thuê trông pet',
+
+    # Nhóm đồ ăn & Dinh dưỡng (Food & Nutrition)
+    'thucan': 'thức ăn', 'pate': 'pate', 'hat': 'thức ăn hạt', 
+    'xuong': 'xương gặm', 'banhthuong': 'bánh thưởng', 'snack': 'snack thú cưng',
+    'dinhduong': 'dinh dưỡng', 'sua': 'sữa thú cưng',
+
+    # Nhóm đồ dùng & Phụ kiện (Accessories)
+    'chuong': 'chuồng', 'long': 'lồng', 'vongco': 'vòng cổ', 'daydat': 'dây dắt',
+    'ao': 'áo quần', 'thoitrang': 'thời trang', 'balo': 'balo vận chuyển', 
+    'cat': 'cát vệ sinh', 'khay': 'khay vệ sinh', 'dochoi': 'đồ chơi',
+
+    # Nhóm cộng đồng & Cảm xúc (Community & Emotion)
+    'cuutro': 'cứu trợ', 'nhannuoi': 'nhận nuôi', 'adopt': 'nhận nuôi', 
+    'offline': 'offline hội nhóm', 'dangyeu': 'đáng yêu', 'haihuoc': 'hài hước',
+    'meme': 'ảnh chế thú cưng', 'khoe': 'khoe thú cưng'
+    }
+    
+    # Tách từ đơn giản dựa trên dictionary
+    result = tag
+    for eng, vie in replacements.items():
+        if eng in result:
+            result = result.replace(eng, f" {vie} ")
+    
+    return " ".join(result.split())
+
 def run_ai_analyzer():
     engine = get_engine()
-    print("--- [AI ENGINE] Phân tích xu hướng sở thích... ---")
     
     try:
-        # 2. LẤY DỮ LIỆU TƯƠNG TÁC (3 ngày gần nhất + Nuôi pet)
-        query_interact = """
-            SELECT user_id, weight, metadata, action_type, created_at
+        # 1. LẤY DỮ LIỆU TƯƠNG TÁC
+        # Sử dụng trọng số thời gian: Tương tác càng mới điểm càng cao
+        query = """
+            SELECT user_id, weight, metadata, action_type, created_at,
+                   EXTRACT(EPOCH FROM (NOW() - created_at))/3600 as hours_ago
             FROM user_interactions 
-            WHERE (action_type IN ('like', 'comment', 'share', 'view') AND created_at > NOW() - INTERVAL '3 days')
-               OR (action_type IN ('own_pet', 'follow_pet'))
+            WHERE created_at > NOW() - INTERVAL '7 days'
         """
-        df_interact = pd.read_sql(query_interact, engine)
-        
-        # Lấy kho tag hệ thống để so sánh mở rộng
+        df_interact = pd.read_sql(query, engine)
         all_system_tags = pd.read_sql("SELECT name FROM tags", engine)['name'].tolist()
 
-        if df_interact.empty or not all_system_tags:
-            print("[Thông báo] Không có tương tác mới để phân tích.")
-            return
+        if df_interact.empty: return
 
-        # 3. TRÍCH XUẤT ĐIỂM GỐC TỪ HÀNH VI
+        # 2. XỬ LÝ TRỌNG SỐ (TIME DECAY)
         data_list = []
-        now = datetime.now()
         for _, row in df_interact.iterrows():
             meta = row['metadata']
             if not meta: continue
             if isinstance(meta, str): meta = json.loads(meta)
             tags = meta.get('tags', [])
+
+            # Công thức Decay: Giảm 10% sau mỗi 24h
+            time_decay = 0.9 ** (row['hours_ago'] / 24)
+            base_score = row['weight'] * time_decay
             
-            if isinstance(tags, list):
-                # Trọng số: Nuôi pet (5.0), Tương tác mới (1.5), Cũ hơn (1.0)
-                weight = row['weight'] * 5.0 if row['action_type'] == 'own_pet' else \
-                         (row['weight'] * 1.5 if (now - row['created_at']).days < 1 else row['weight'])
-                for t in tags:
-                    if t: data_list.append({'user_id': row['user_id'], 'tag_name': str(t).strip().lower(), 'score': weight})
+            # Bonus đặc biệt cho hành động sở hữu thú cưng
+            if row['action_type'] == 'own_pet': base_score *= 5
 
-        df_user_raw = pd.DataFrame(data_list).groupby(['user_id', 'tag_name'])['score'].sum().reset_index()
+            for t in tags:
+                data_list.append({
+                    'user_id': row['user_id'], 
+                    'tag_name': str(t).strip().lower(), 
+                    'score': base_score
+                })
 
-        # 4. LOGIC VECTOR HÓA: MỞ RỘNG SỞ THÍCH THÔNG MINH
-        user_tags_raw = df_user_raw['tag_name'].unique().tolist()
+        # Gom nhóm điểm thô
+        df_raw = pd.DataFrame(data_list).groupby(['user_id', 'tag_name'])['score'].sum().reset_index()
+
+        # 3. VECTOR HÓA & MỞ RỘNG (VECTOR EXPANSION)
+        user_tags = df_raw['tag_name'].unique().tolist()
+        u_embs = model.encode([segment_hashtag(t) for t in user_tags], convert_to_tensor=True)
+        s_embs = model.encode([segment_hashtag(t) for t in all_system_tags], convert_to_tensor=True)
         
-        # Tách từ và chuẩn hóa cho cả tag user và tag hệ thống
-        user_tags_seg = [segment_hashtag(t) for t in user_tags_raw]
-        system_tags_seg = [segment_hashtag(t) for t in all_system_tags]
-
-        # Chuyển đổi sang Vector
-        u_embs = model.encode(user_tags_seg, convert_to_tensor=True)
-        s_embs = model.encode(system_tags_seg, convert_to_tensor=True)
         cosine_scores = util.cos_sim(u_embs, s_embs)
 
-        expanded_data = []
-        for i, u_tag in enumerate(user_tags_raw):
-            # CẢI TIẾN: Ngưỡng thích ứng. Từ ngắn (như 'cho') cần ngưỡng vừa phải để bắt được 'poodle'
-            u_segmented = user_tags_seg[i]
-            threshold = 0.72 if len(u_segmented) <= 4 else 0.78 
-
+        # 4. TẠO PROFILE MỚI
+        final_profiles = []
+        for i, u_tag in enumerate(user_tags):
             for j, s_tag in enumerate(all_system_tags):
                 similarity = cosine_scores[i][j].item()
                 
-                if similarity > threshold:
-                    target_users = df_user_raw[df_user_raw['tag_name'] == u_tag]
-                    for _, u_row in target_users.iterrows():
-                        # Dùng mũ 2 thay vì mũ 4 để giữ lại sức mạnh cho các tag liên quan như poodle
-                        penalty = (similarity ** 2) 
-                        bonus_score = u_row['score'] if u_tag == s_tag else (u_row['score'] * penalty * 0.5)
-                        
-                        if bonus_score > 0.05:
-                            expanded_data.append({'user_id': u_row['user_id'], 'tag_name': s_tag, 'score': bonus_score})
+                if similarity > 0.75: # Ngưỡng tương đồng
+                    users_with_tag = df_raw[df_raw['tag_name'] == u_tag]
+                    for _, u_row in users_with_tag.iterrows():
+                        final_profiles.append({
+                            'user_id': u_row['user_id'],
+                            'tag_name': s_tag,
+                            'score': u_row['score'] * (similarity ** 2)
+                        })
 
-       # 5. GOM NHÓM LẠI VÀ GHI ĐÈ VÀO USER INTEREST PROFILE
-        if expanded_data:
-            df_final = pd.DataFrame(expanded_data).groupby(['user_id', 'tag_name'])['score'].sum().reset_index()
-
+        # 5. CẬP NHẬT DATABASE (BATCH UPSERT)
+        if final_profiles:
+            df_final = pd.DataFrame(final_profiles).groupby(['user_id', 'tag_name'])['score'].sum().reset_index()
+            
             with engine.begin() as conn:
-                # --- CẢI TIẾN: Reset điểm của những người dùng có trong danh sách phân tích ---
-                # Việc này đảm bảo nếu họ Unlike sạch bách thì điểm sẽ về 0 thay vì giữ điểm cũ
+                # Xóa sạch điểm cũ của những user có tương tác mới để làm mới profile
                 active_users = df_final['user_id'].unique().tolist()
-                if active_users:
-                    conn.execute(
-                        text("UPDATE user_interest_profiles SET score = 0 WHERE user_id IN :users"),
-                        {"users": tuple(active_users)}
-                    )
-
-                for _, row in df_final.iterrows():
-                    upsert_sql = text("""
-                        INSERT INTO user_interest_profiles (id, user_id, tag_name, score, updated_at)
-                        VALUES (:id, :user_id, :tag_name, :score, NOW())
-                        ON CONFLICT (user_id, tag_name) 
-                        DO UPDATE SET score = EXCLUDED.score, updated_at = NOW();
-                    """)
-                    conn.execute(upsert_sql, {
-                        'id': str(uuid.uuid4()), 
-                        'user_id': row['user_id'], 
-                        'tag_name': row['tag_name'], 
-                        'score': row['score']
-                    })
+                conn.execute(text("DELETE FROM user_interest_profiles WHERE user_id IN :u"), {"u": tuple(active_users)})
                 
-                # (Tùy chọn) Xóa các bản ghi có score = 0 để làm sạch DB
-                conn.execute(text("DELETE FROM user_interest_profiles WHERE score <= 0"))
-        
-        print(f"--- [AI ENGINE] HOÀN TẤT: Đã cập nhật hồ sơ cho {len(df_interact['user_id'].unique())} người dùng ---")
+                # Insert hàng loạt
+                df_final['id'] = [str(uuid.uuid4()) for _ in range(len(df_final))]
+                df_final['updated_at'] = datetime.now()
+                df_final.to_sql('user_interest_profiles', conn, if_exists='append', index=False, method='multi')
+
+        print(f"--- [AI ENGINE] Đã cập nhật xong cho {len(active_users)} users ---")
 
     except Exception as e:
-        print(f"[LỖI HỆ THỐNG] {str(e)}")
+        print(f"Lỗi: {e}")
 
 if __name__ == "__main__":
     run_ai_analyzer()

@@ -17,39 +17,89 @@ class ConversationRepository extends BaseRepository implements ConversationInter
 
     public function getUserConversations(string $userId, ?string $filterStatus = null)
     {
-        $query = $this->model->whereHas('participants', function ($q) use ($userId) {
-            $q->where('conversation_participants.user_id', $userId);
-        })
+        $query = $this->model
+            ->where(function ($q) {
+                $q->where('is_group', true) // Nếu là group thì lấy luôn (dù chưa có tin nhắn)
+                    ->orWhere(function ($sub) {
+                        $sub->where('is_group', false)
+                            ->has('messages'); // Nếu là private chat thì BẮT BUỘC phải có tin nhắn
+                    });
+            })
+            ->whereHas('participants', function ($q) use ($userId) {
+                $q->where('conversation_participants.user_id', $userId);
+            })
             ->with(['participants' => function ($q) {
-                $q->withPivot('last_read_at', 'last_reply_at');
+                $q->withPivot('role', 'last_read_at', 'last_reply_at');
             }]);
-
-        // Subquery lấy thời gian tin nhắn mới nhất để sắp xếp
+        // Subquery lấy thời gian tin nhắn mới nhất
         $latestMessageSql = "(SELECT created_at FROM messages WHERE messages.conversation_id = conversations.conversation_id ORDER BY created_at DESC LIMIT 1)";
 
-        // Join để lấy dữ liệu từ bảng pivot của chính user này
+        // Join lấy dữ liệu pivot của CHÍNH user đang gọi để lọc/sort
         $query->join('conversation_participants', 'conversations.conversation_id', '=', 'conversation_participants.conversation_id')
             ->where('conversation_participants.user_id', $userId)
-            ->select('conversations.*', 'conversation_participants.last_read_at', 'conversation_participants.last_reply_at');
+            ->select(
+                'conversations.*',
+                'conversation_participants.last_read_at',
+                'conversation_participants.last_reply_at',
+                'conversation_participants.role as my_role' // Lấy role của tôi ra ngoài để dễ dùng
+            );
 
         $query->selectSub($latestMessageSql, 'latest_message_at');
 
-        // LOGIC LỌC THEO ĐÍNH CHÍNH CỦA BẠN:
         if ($filterStatus === 'unread') {
-            // Tab Unread: Chỉ lấy Chat đơn (is_group = false) VÀ chưa phản hồi (last_reply_at IS NULL)
-            $query->where('conversations.is_group', false)
-                ->whereNull('conversation_participants.last_reply_at');
-        } elseif ($filterStatus === 'read') {
-            // Tab Read: Lấy tất cả Group HOẶC Chat đơn đã phản hồi
             $query->where(function ($q) {
-                $q->where('conversations.is_group', true)
-                    ->orWhereNotNull('conversation_participants.last_reply_at');
+                $q->where(function ($sub) {
+                    // Private chat: chưa phản hồi (không quan tâm đã đọc hay chưa theo logic của bạn)
+                    $sub->where('conversations.is_group', false)
+                        ->whereNull('conversation_participants.last_reply_at');
+                })->orWhere(function ($sub) {
+                    // Group chat: chưa đọc
+                    $sub->where('conversations.is_group', true)
+                        ->whereNull('conversation_participants.last_read_at');
+                });
+            });
+        } elseif ($filterStatus === 'read') {
+            $query->where(function ($q) {
+                $q->where(function ($sub) {
+                    // Private chat: đã phản hồi
+                    $sub->where('conversations.is_group', false)
+                        ->whereNotNull('conversation_participants.last_reply_at');
+                })->orWhere(function ($sub) {
+                    // Group chat: đã đọc
+                    $sub->where('conversations.is_group', true)
+                        ->whereNotNull('conversation_participants.last_read_at');
+                });
             });
         }
 
-        // Sắp xếp: Ưu tiên tin nhắn mới nhất, nếu chưa có tin nhắn thì dùng created_at của hội thoại
-        return $query->orderByRaw("COALESCE(($latestMessageSql), conversations.created_at) DESC")
+        $results = $query->orderByRaw("COALESCE(($latestMessageSql), conversations.created_at) DESC")
             ->paginate(15);
+
+        // Xử lý biến đổi Collection mà vẫn giữ Object Participant là Model
+        $results->getCollection()->transform(function ($conversation) use ($userId) {
+            if ($conversation->is_group) {
+                // Chỉ giữ lại chính mình trong danh sách participants
+                $me = $conversation->participants->firstWhere('user_id', $userId);
+
+                if ($me) {
+                    // Gán role vào object để trả về cùng cấp với name
+                    $me->role = $me->pivot->role;
+                    // Ẩn các trường không cần thiết nhưng vẫn giữ object là Model
+                    $me->makeHidden(['pivot', 'email', 'created_at', 'updated_at', 'email_verified_at']);
+
+                    $conversation->setRelation('participants', collect([$me]));
+                }
+            } else {
+                // Chat đơn: Trả về đầy đủ nhưng gán thêm role từ pivot nếu cần
+                $conversation->participants->each(function ($p) {
+                    $p->role = $p->pivot->role;
+                    $p->makeHidden(['pivot']);
+                });
+            }
+            return $conversation;
+        });
+
+        return $results;
     }
     public function updateParticipant($conversationId, $userId, array $data)
     {
@@ -172,5 +222,47 @@ class ConversationRepository extends BaseRepository implements ConversationInter
 
         // syncWithoutDetaching giúp thêm mới mà không xóa các thành viên cũ
         return $conversation->participants()->syncWithoutDetaching($pivotData);
+    }
+
+    public function changeRole(string $conversationId, string $targetId)
+    {
+        // Lấy ID của người dùng hiện tại (người đang thực hiện lệnh)
+        $myId = Auth::id();
+
+        // Sử dụng Transaction để đảm bảo tính toàn vẹn dữ liệu
+        return DB::transaction(function () use ($conversationId, $targetId, $myId) {
+
+            // 1. Cập nhật người được chọn (targetId) lên Admin
+            $updatedTarget = DB::table('conversation_participants')
+                ->where('conversation_id', $conversationId)
+                ->where('user_id', $targetId)
+                ->update([
+                    'role' => 'admin',
+                    'updated_at' => now()
+                ]);
+
+            // Nếu không tìm thấy targetId trong cuộc hội thoại này, hủy transaction
+            if ($updatedTarget === 0) {
+                throw new \Exception('Không tìm thấy người dùng mục tiêu trong cuộc hội thoại.');
+            }
+
+            // 2. Cập nhật bản thân (myId) xuống Member
+            $updatedMe = DB::table('conversation_participants')
+                ->where('conversation_id', $conversationId)
+                ->where('user_id', $myId)
+                ->update([
+                    'role' => 'member',
+                    'updated_at' => now()
+                ]);
+
+            if ($updatedMe === 0) {
+                throw new \Exception('Bạn không phải là thành viên của cuộc hội thoại này.');
+            }
+
+            return [
+                'status' => 'success',
+                'message' => 'Chuyển quyền quản trị viên thành công.'
+            ];
+        });
     }
 }

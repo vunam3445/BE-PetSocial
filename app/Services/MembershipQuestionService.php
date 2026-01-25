@@ -10,7 +10,7 @@ use App\Models\User;
 use App\Models\Group;
 use App\Notifications\GroupJoinedNotification;
 use App\Notifications\GroupRejectedNotification;
-
+use Illuminate\Support\Facades\DB;
 class MembershipQuestionService
 {
     protected $membershipRepository;
@@ -39,23 +39,25 @@ class MembershipQuestionService
     {
         return $this->membershipRepository->getByField('group_id', $groupId, [], []);
     }
-    public function createRequest(string $groupId, array $answers)
-    {
+    public function createRequest(string $groupId, array $answers = [])
+{
+    $userId = Auth::id();
+    $group = $this->groupRepository->find($groupId);
 
-        $userId  = Auth::id();
+    // 1) PUBLIC GROUP → Thêm trực tiếp
+    if ($group->visibility === 'public') {
+        return $this->groupRepository->addMemberToGroup($groupId, [$userId], 'member');
+    }
 
-        $group = $this->groupRepository->find($groupId);
+    $hasQuestions = $group->joinQuestions()->exists();
 
-        // 1) PUBLIC GROUP → Add member directly
-        if ($group->visibility === 'public') {
-            return $this->groupRepository->addMemberToGroup($groupId, [$userId], 'member');
-        }
+    if ($hasQuestions && (empty($answers) || !is_array($answers))) {
+        throw new \Exception("Bạn cần trả lời các câu hỏi để tham gia nhóm.");
+    }
 
-        // 2) PRIVATE GROUP → Must have membership answers
-        if (!$answers || !is_array($answers)) {
-            throw new \Exception("Bạn cần trả lời các câu hỏi để tham gia nhóm.");
-        }
-
+    // Sử dụng Transaction để đảm bảo dữ liệu toàn vẹn
+    return DB::transaction(function () use ($groupId, $userId, $hasQuestions, $answers, $group) {
+        
         // 2.1 – Tạo bản ghi group_join_requests
         $request = $this->memberJoinRequest->create([
             'group_id' => $groupId,
@@ -63,18 +65,33 @@ class MembershipQuestionService
             'status'   => 'pending'
         ]);
 
-        // 2.2 – Tạo bản ghi group_join_answers cho từng câu hỏi
-        foreach ($answers as $item) {
-            $this->membershipRepository->createJoinAnswer([
-                'request_id'  => $request->id,
-                'question_id' => $item['question_id'],
-                'answer'      => $item['answer'],
-                'user_id'     => $userId,
-            ]);
+        // 2.2 – Tạo bản ghi answers
+        if ($hasQuestions && !empty($answers)) {
+            foreach ($answers as $item) {
+                $this->membershipRepository->createJoinAnswer([
+                    'request_id'  => $request->id,
+                    'question_id' => $item['question_id'],
+                    'answer'      => $item['answer'],
+                    'user_id'     => $userId,
+                ]);
+            }
+        }
+
+        // --- LOGIC GỬI THÔNG BÁO MỚI ---
+        // Lấy chủ nhóm (Admin)
+        $admin = \App\Models\User::find($group->created_by);
+        
+        if ($admin) {
+            // Load đầy đủ quan hệ để Notification có dữ liệu hiển thị (Đặc biệt là answers)
+            $request->load(['user:user_id,name,avatar_url', 'answers.question', 'group']);
+            
+            // Gửi thông báo
+            $admin->notify(new \App\Notifications\GroupJoinRequestNotification($request));
         }
 
         return $request;
-    }
+    });
+}
 
     public function updateRequest(int $id, $data)
     {

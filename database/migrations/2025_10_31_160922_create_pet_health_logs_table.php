@@ -20,6 +20,8 @@ return new class extends Migration {
 
             $table->foreign('pet_id')->references('pet_id')->on('pets')->onDelete('cascade');
             $table->foreign('category_id')->references('category_id')->on('health_categories')->onDelete('cascade');
+            $table->index(['pet_id', 'category_id']);
+            $table->index('created_at'); // Truy vấn theo mốc thời gian (vẽ biểu đồ)
         });
     }
 

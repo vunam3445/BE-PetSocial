@@ -13,6 +13,8 @@ use App\Models\Conversation;
 use App\Notifications\ConversationInvitation;
 use App\Notifications\ConversationKickNotification;
 use Illuminate\Support\Facades\Storage;
+use App\Notifications\ConversationDeletedNotification;
+
 class ConversationService
 {
     protected $conversationRepo;
@@ -27,42 +29,48 @@ class ConversationService
     }
 
     public function getUserConversations(string $userId, ?string $filterStatus = null)
-    {
-        // Lấy dữ liệu đã được lọc đúng số lượng 15 items/page từ SQL
-        $conversations = $this->conversationRepo->getUserConversations($userId, $filterStatus);
+{
+    // Lấy dữ liệu từ Repo
+    $conversations = $this->conversationRepo->getUserConversations($userId, $filterStatus);
 
-        // Biến đổi dữ liệu (vẫn giữ nguyên object Paginator)
-        $conversations->through(function ($conv) use ($userId) {
-            // 1. Lấy tin nhắn mới nhất để hiển thị nội dung chat trên UI
-            $latestMessage = $this->messageRepo->getLatestMessage($conv->conversation_id);
+    // Biến đổi dữ liệu
+    $conversations->through(function ($conv) use ($userId) {
+        // 1. Lấy tin nhắn mới nhất
+        $latestMessage = $this->messageRepo->getLatestMessage($conv->conversation_id);
 
-            // 2. Xác định trạng thái để hiển thị "Dấu chấm xanh" (unread) trên UI
-            // Đây là trạng thái ĐÃ ĐỌC TIN NHẮN hay chưa, khác với status phân loại tab
-            $lastReadAt = $conv->last_read_at;
-            $latestMsgAt = $conv->latest_message_at;
+        // 2. Xác định trạng thái unread/read (Dấu chấm xanh)
+        $lastReadAt = $conv->last_read_at;
+        $latestMsgAt = $conv->latest_message_at;
+        $uiStatus = ($latestMsgAt && (!$lastReadAt || $lastReadAt < $latestMsgAt)) ? 'unread' : 'read';
 
-            // Nếu có tin nhắn mới mà thời gian đọc nhỏ hơn thời gian tin nhắn -> UI hiện unread
-            if ($latestMsgAt && (!$lastReadAt || $lastReadAt < $latestMsgAt)) {
-                $uiStatus = 'unread';
-            } else {
-                $uiStatus = 'read';
-            }
-
-            // 3. Clean up thông tin participants
-            $conv->participants->each(function ($p) {
-                $p->setVisible(['user_id', 'name', 'avatar_url']);
+        // 3. Xử lý participants: CHỈ TRẢ VỀ NGƯỜI KIA NẾU LÀ PRIVATE CHAT
+        if (!$conv->is_group) {
+            // Lọc bỏ chính mình ra khỏi danh sách
+            $otherUser = $conv->participants->filter(function ($p) use ($userId) {
+                return $p->user_id !== $userId;
             });
+            // Cập nhật lại danh sách chỉ chứa người kia
+            $conv->setRelation('participants', $otherUser->values());
+        } else {
+            // Nếu là Group, bạn có thể giữ nguyên hoặc chỉ trả về chính mình tùy logic UI
+            // Ở đây tôi giữ nguyên logic ẩn các trường thừa
+        }
 
-            // 4. Trả về cấu trúc chuẩn cho Frontend
-            return [
-                'conversation'   => $conv,
-                'latest_message' => $latestMessage,
-                'status'         => $uiStatus, // Trạng thái này dùng để hiện dấu thông báo tin nhắn mới
-            ];
+        // Clean up dữ liệu participant (ẩn các trường nhạy cảm/thừa)
+        $conv->participants->each(function ($p) {
+            $p->setVisible(['user_id', 'name', 'avatar_url']);
         });
 
-        return $conversations;
-    }
+        // 4. Trả về cấu trúc chuẩn
+        return [
+            'conversation'   => $conv,
+            'latest_message' => $latestMessage,
+            'status'         => $uiStatus,
+        ];
+    });
+
+    return $conversations;
+}
 
 
 
@@ -77,48 +85,53 @@ class ConversationService
     public function createConversation(array $data)
     {
         $userId = Auth::id();
-        $now = now(); // Lấy thời gian hiện tại
-        // Trường hợp private chat: check trước khi tạo
+        $now = now();
+
+        // 1. Kiểm tra chat đơn
         if (empty($data['is_group']) || !$data['is_group']) {
             $otherUserId = $data['participant_ids'][0];
             $existing = $this->conversationRepo->findPrivateConversation($userId, $otherUserId);
 
             if ($existing) {
-                return $existing->load('participants:user_id,name,avatar_url')
-                    ->makeHidden('participants.*.pivot');
+                $existing->load(['participants' => function ($q) {
+                    $q->select('users.user_id', 'name', 'avatar_url')->withPivot('role');
+                }]);
+
+                $me = $existing->participants->where('user_id', $userId)->first();
+                // Gán attribute động
+                $existing->my_role = $me ? $me->pivot->role : 'admin';
+                return $existing;
             }
         }
 
-        // --- PHẦN THAY ĐỔI ---
+        // 2. Tạo mới
         $isGroup = $data['is_group'] ?? false;
-        $insertData = [
+        $conversation = $this->conversationRepo->create([
             'name' => $data['name'] ?? null,
             'is_group' => $isGroup,
             'created_by' => $userId,
-        ];
+            'avatar_url' => $isGroup ? url('storage/avatars/default-group_avatar.png') : null,
+        ]);
 
-        // Nếu là group, gán avatar mặc định (đường dẫn storage hoặc URL)
+        // 3. Gán thành viên
         if ($isGroup) {
-            $insertData['avatar_url'] = url('storage/avatars/default-group_avatar.png');
-            // Hoặc dùng: config('chat.default_group_avatar')
-        }
-        // ---------------------
-
-        $conversation = $this->conversationRepo->create($insertData);
-
-        if ($conversation->is_group) {
             $conversation->participants()->attach($userId, ['role' => 'admin', 'last_read_at' => $now]);
-            // Sử dụng mảng participant_ids trực tiếp
             $conversation->participants()->attach($data['participant_ids'], ['role' => 'member']);
+            $currentRole = 'admin';
         } else {
             $conversation->participants()->attach([$userId, $data['participant_ids'][0]], ['role' => 'admin']);
+            $currentRole = 'admin';
         }
 
-        return $conversation->load('participants:user_id,name,avatar_url')
-            ->makeHidden('participants.*.pivot');
+        $conversation->load(['participants' => function ($q) {
+            $q->select('users.user_id', 'name', 'avatar_url');
+        }]);
+
+        // Gán role trực tiếp vào object
+        $conversation->my_role = $currentRole;
+
+        return $conversation;
     }
-
-
     public function deleteConversation(string $conversationId)
     {
         $userId = Auth::id();
@@ -222,14 +235,14 @@ class ConversationService
     {
         return DB::transaction(function () use ($conversationId, $targetUserId) {
             $currentUserId = Auth::id();
-            $currentUser = Auth::user(); // Lấy Object User hiện tại để có thuộc tính 'name'
+            $currentUser = Auth::user();
 
             $conversation = Conversation::findOrFail($conversationId);
             if (!$conversation->is_group) {
                 throw new \Exception("Chỉ có thể xóa thành viên khỏi cuộc trò chuyện nhóm.");
             }
 
-            // Lấy thông tin role (bảng pivot)
+            // Lấy thông tin role (bảng pivot) của cả người thực hiện và đối tượng bị tác động
             $participants = DB::table('conversation_participants')
                 ->where('conversation_id', $conversationId)
                 ->whereIn('user_id', [$currentUserId, $targetUserId])
@@ -245,6 +258,14 @@ class ConversationService
             $isAdmin = $currentUserPivot && $currentUserPivot->role === 'admin';
             $isSelfAction = ($currentUserId === $targetUserId);
 
+            // --- BẮT ĐẦU PHẦN KIỂM TRA MỚI ---
+            // Nếu là Admin và đang tự xóa bản thân (Rời nhóm)
+            if ($isAdmin && $isSelfAction) {
+                throw new \Exception("Bạn là quản trị viên. Vui lòng chuyển quyền quản lý cho người khác trước khi rời nhóm.");
+            }
+            // --- KẾT THÚC PHẦN KIỂM TRA MỚI ---
+
+            // Kiểm tra quyền hạn chung
             if (!$isAdmin && !$isSelfAction) {
                 throw new \Exception("Bạn không có quyền xóa thành viên này.");
             }
@@ -255,11 +276,10 @@ class ConversationService
                 ->where('user_id', $targetUserId)
                 ->delete();
 
-            // Gửi thông báo nếu Admin xóa thành viên
+            // Gửi thông báo nếu Admin xóa thành viên khác
             if ($isAdmin && !$isSelfAction) {
                 $targetUser = User::find($targetUserId);
                 if ($targetUser) {
-                    // SỬA TẠI ĐÂY: Dùng $currentUser->name thay vì $currentUserData->name
                     Notification::send($targetUser, new ConversationKickNotification($conversation, $currentUser->name));
                 }
             }
@@ -283,7 +303,7 @@ class ConversationService
 
         // 2. Xử lý lưu file và tạo Full URL
         if (isset($data['avatar']) && $data['avatar'] instanceof \Illuminate\Http\UploadedFile) {
-            
+
             // Xử lý xóa file cũ trước khi lưu file mới
             $current = $this->conversationRepo->find($id);
             if ($current->avatar_url) {
@@ -307,4 +327,33 @@ class ConversationService
 
         return $this->conversationRepo->update($id, $updateData);
     }
+
+    public function changeRole(string $conversationId, string $tagetId)
+    {
+        return $this->conversationRepo->changeRole($conversationId, $tagetId);
+    }
+
+    public function delete(string $conversationId)
+{
+    return DB::transaction(function () use ($conversationId) {
+        $user = Auth::user(); // Lấy cả object user để lấy tên
+        $conversation = Conversation::with('participants')->findOrFail($conversationId);
+
+        $recipients = $conversation->participants->filter(fn($u) => $u->user_id !== $user->user_id);
+
+        if ($recipients->isNotEmpty()) {
+            foreach ($recipients as $recipient) {
+                $currentDomain = request()->getSchemeAndHttpHost();
+                $recipient->notify(new ConversationDeletedNotification($conversation, $user->name, $currentDomain));
+            }
+        }
+
+        $conversation->delete();
+
+        return [
+            'status' => 'success',
+            'message' => $conversation->is_group ? 'Đã giải tán nhóm.' : 'Đã xóa hội thoại.'
+        ];
+    });
+}
 }

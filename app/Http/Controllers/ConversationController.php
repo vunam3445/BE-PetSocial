@@ -8,8 +8,12 @@ use Illuminate\Support\Facades\Auth;
 use App\Http\Resources\ConversationResource;
 use Illuminate\Support\Facades\Validator;
 use Exception;
+use App\Models\Conversation;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests; 
 class ConversationController extends Controller
 {
+    use AuthorizesRequests;
+
     protected $conversationService;
 
     public function __construct(ConversationService $conversationService)
@@ -197,12 +201,40 @@ class ConversationController extends Controller
                 'message' => 'Cập nhật cuộc trò chuyện thành công',
                 'data'    => $result
             ], 200);
-
         } catch (Exception $e) {
             return response()->json([
                 'status'  => 'error',
                 'message' => 'Đã xảy ra lỗi: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    public function changeRole(Request $request, string $conversationId, string $targetId)
+    {
+        try {
+            $res = $this->conversationService->changeRole($conversationId, $targetId);
+            return response()->json($res);
+        } catch (\Exception $e) {
+            // Trả về lỗi nếu có vấn đề (ví dụ: không tìm thấy user hoặc không đủ quyền)
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    public function delete(string $conversationId)
+    {
+        // 1. Tìm conversation
+        $conversation = Conversation::findOrFail($conversationId);
+
+        // 2. Thực hiện kiểm tra quyền từ Policy
+        // Nó sẽ gọi hàm delete() trong ConversationPolicy
+        $this->authorize('delete', $conversation);
+
+        // 3. Nếu vượt qua (là admin), tiến hành xóa thông qua Service
+        $res = $this->conversationService->delete($conversationId);
+
+        return response()->json($res);
     }
 }
