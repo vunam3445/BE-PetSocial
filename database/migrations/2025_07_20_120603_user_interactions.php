@@ -20,7 +20,7 @@ return new class extends Migration
             $table->json('metadata')->nullable();  // Lưu tags của bài viết hoặc pet_id
             $table->timestamps();
 
-            $table->foreign('user_id')->references('user_id')->on('users');
+            $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
             $table->index(['user_id', 'created_at']); // Tối ưu cho AI query
         });
     }

@@ -6,9 +6,10 @@ use App\Http\Requests\CreatePostRequest;
 use App\Services\PostService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 class PostController extends Controller
 {
+    use AuthorizesRequests;
     protected $postService;
 
     public function __construct(PostService $postService)
@@ -38,6 +39,10 @@ class PostController extends Controller
 
     public function update($id, Request $request)
     {
+        $postModel = \App\Models\Post::findOrFail($id);
+
+        // 2. Kiểm tra quyền "update" dựa trên PostPolicy
+        $this->authorize('update', $postModel);
         // Lấy metadata từ JSON
         $mediaMeta = json_decode($request->input('media', '[]'), true) ?? [];
 
@@ -82,7 +87,7 @@ class PostController extends Controller
     public function getAllPosts()
     {
 
-        $posts = $this->postService->getAllPosts(['media', 'author:user_id,name,avatar_url','pet:pet_id,name,avatar_url'], ['likes'], 10);
+        $posts = $this->postService->getAllPosts(['media', 'author:user_id,name,avatar_url', 'pet:pet_id,name,avatar_url', 'group:group_id,name'], ['likes'], 20);
 
         return response()->json([
             'posts' => $posts
@@ -91,18 +96,28 @@ class PostController extends Controller
 
     public function getPostsOfGroup(string $groupId)
     {
-        $posts = $this->postService->getPostsOfGroup($groupId, [],[],20);
+        $posts = $this->postService->getPostsOfGroup($groupId, [], [], 20);
         return response()->json($posts);
     }
-        public function getPostsPendingOfGroup(string $groupId)
+    public function getPostsPendingOfGroup(string $groupId)
     {
-        $posts = $this->postService->getPostsPendingOfGroup($groupId, [],[],20);
+        $posts = $this->postService->getPostsPendingOfGroup($groupId, [], [], 20);
         return response()->json($posts);
     }
 
-    public function managePost(string $postId, Request $request){
+    public function managePost(string $postId, Request $request)
+    {
         $data = $request->all();
         $post = $this->postService->updatePost($postId, $data);
         return response()->json($post);
+    }
+
+    public function refreshFeed()
+    {
+        $this->postService->resetSeed();
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Feed seed has been reset. Next request will be page 1 with new data.'
+        ]);
     }
 }

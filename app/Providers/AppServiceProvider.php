@@ -2,11 +2,24 @@
 
 namespace App\Providers;
 
+use App\Models\Conversation;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use App\Models\Group;
+use App\Models\HealthCategory;
+use Illuminate\Support\Facades\Gate; // Import Gate
+use App\Models\Message;
+use App\Models\PetHealthLog;
+use App\Models\User;
+use App\Models\Post;
+use App\Policies\ConversationPolicy;
 use App\Policies\GroupPolicy;
+use App\Policies\MessagePolicy;
+use App\Policies\PetHealthLogPolicy;
+use App\Policies\PetHealthPolicy;
+use App\Policies\PostPolicy;
+use App\Policies\UserPolicy;
 use App\Repositories\AuthRepository\AuthInterface;
 use App\Repositories\AuthRepository\AuthRepository;
 use App\Repositories\ProfileRepository\ProfileInterface;
@@ -45,6 +58,7 @@ use App\Repositories\ReportRepository\ReportInterface;
 use App\Repositories\ReportRepository\ReportRepository;
 use App\Repositories\NotificationRepository\NotificationInterface;
 use App\Repositories\NotificationRepository\NotificationRepository;
+
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -80,7 +94,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // cấu hình chống spam like
         $this->configureRateLimiting();
-        
+
         // routes có thể được đăng ký trong RouteServiceProvider hoặc trong routes/web.php, routes/api.php, v.v.
         // Nếu cần đăng ký routes ở đây, hãy sử dụng Route::middleware() hoặc Route::group() trực tiếp.
 
@@ -89,6 +103,9 @@ class AppServiceProvider extends ServiceProvider
         \App\Models\Like::observe(\App\Observers\LikeObserver::class);
         \App\Models\PetFollow::observe(\App\Observers\PetFollowObserver::class);
         \App\Models\Pet::observe(\App\Observers\PetObserver::class);
+        foreach ($this->policies as $model => $policy) {
+            Gate::policy($model, $policy);
+        }
     }
     protected function configureRateLimiting()
     {
@@ -111,7 +128,12 @@ class AppServiceProvider extends ServiceProvider
         });
     }
     protected $policies = [
-    Group::class => GroupPolicy::class,
-];
-
+        Group::class => GroupPolicy::class,
+        Conversation::class => ConversationPolicy::class,
+        Message::class => MessagePolicy::class,
+        User::class => UserPolicy::class,
+        Post::class => PostPolicy::class,
+        \App\Models\HealthCategory::class => \App\Policies\PetHealthPolicy::class,
+        PetHealthLog::class => PetHealthLogPolicy::class,
+    ];
 }

@@ -8,11 +8,11 @@ use App\Services\PetService;
 use App\Http\Requests\CreatePetRequest;
 use App\Http\Requests\UpdatePetRequest;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
-
-
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use App\Models\Pet;
 class PetController extends Controller
 {
+    use AuthorizesRequests;
     private $petService;
 
     public function __construct(PetService $petService)
@@ -43,8 +43,12 @@ class PetController extends Controller
 
     public function update(string $petId, UpdatePetRequest $request)
     {
+        $pet = Pet::findOrFail($petId);
+
+    // Gọi policy kiểm tra quyền 'update'
+        $this->authorize('update', $pet);
         $data = $request->validated();
-        Log::info('kdaasa',$request->All());
+
         $result = $this->petService->updatePet($petId, $data);
         if ($result) {
             return response()->json(['message' => 'Pet updated successfully'], 200);
@@ -54,6 +58,10 @@ class PetController extends Controller
 
     public function delete(string $petId)
     {
+        $pet = Pet::findOrFail($petId);
+
+    // Gọi policy kiểm tra quyền 'delete'
+        $this->authorize('delete', $pet);
         $result = $this->petService->deletePet($petId);
         if ($result) {
             return response()->json(['message' => 'Pet deleted successfully'], 200);

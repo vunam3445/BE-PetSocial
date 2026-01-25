@@ -28,7 +28,7 @@ class GroupJoinRequest extends Model
         return $this->belongsTo(User::class, 'user_id', 'user_id');
     }
 
-    /** 🔥 Request có nhiều câu trả lời */
+    /**  Request có nhiều câu trả lời */
     public function answers()
     {
         return $this->hasMany(GroupJoinAnswer::class, 'request_id', 'id');

@@ -39,7 +39,7 @@ class HealthReminderNotification extends Notification implements ShouldQueue
         $notificationData = [
             'pet_id'            => $this->pet->pet_id,
             'pet_name'          => $this->pet->name,
-            'avatar_url'        => $this->pet->image_url, // Ảnh của thú cưng để làm avatar thông báo
+            'avatar_url'        => $this->pet->avatar_url, // Ảnh của thú cưng để làm avatar thông báo
             'category_id'       => $this->category->category_id,
             'category_name'     => $this->category->name,
             'due_date'          => $this->dueDate->toDateString(),

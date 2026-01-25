@@ -18,7 +18,7 @@ class CommentController extends Controller
     // danh sach comment
     public function index(Request $request, string $postId)
     {
-        $limit = $request->get('limit', 20);
+        $limit = $request->get('limit', 15);
 
         $comments = $this->commentService->getCommentsByPost($postId, $limit);
 

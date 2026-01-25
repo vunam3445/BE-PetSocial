@@ -20,8 +20,10 @@ return new class extends Migration
 
             
             $table->primary(['group_id', 'user_id']);
-            $table->foreign('group_id')->references('group_id')->on('groups');
-            $table->foreign('user_id')->references('user_id')->on('users');
+            $table->foreign('group_id')->references('group_id')->on('groups')->onDelete('cascade');
+            $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
+            $table->index('user_id'); // Tìm xem user này tham gia những group nào
+            $table->index(['group_id', 'role']); // Tìm admin của group
         });
     }
 

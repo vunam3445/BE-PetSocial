@@ -61,26 +61,31 @@ class PetRepository implements PetInterface
         return $pets->toArray();
     }
     public function getAllPostsByPet(string $petId, $limit)
-    {
-        $ownerId = Auth::id();
+{
+    $ownerId = Auth::id();
+    $pet = Pet::findOrFail($petId);
 
-        return Pet::find($petId)
-            ->posts()
-            ->with([
-                'media',
-                'author:user_id,name,avatar_url',
-                'tags',
-                'pet:pet_id,name,avatar_url'
-            ])
-            ->withCount([
-                'likes as is_liked' => function ($q) use ($ownerId) {
-                    $q->where('user_id', $ownerId);
-                },
-                'likes as likes_count',
-            ])
-            ->selectRaw('*, (author_id = ?) as is_owner', [$ownerId])
-            ->orderBy('created_at', 'desc')
-            ->paginate($limit)
-            ->toArray();
-    }
+    return $pet->posts()
+        ->with([
+            'media',
+            'author:user_id,name,avatar_url',
+            'tags',
+            'pet:pet_id,name,avatar_url'
+        ])
+        ->withCount([
+            'likes as is_liked' => function ($q) use ($ownerId) {
+                $q->where('user_id', $ownerId);
+            },
+            'likes as likes_count',
+        ])
+        // ✅ Thêm logic kiểm tra quyền riêng tư
+        ->where(function ($query) use ($ownerId) {
+            $query->where('author_id', $ownerId) // Nếu là chủ post thì thấy hết
+                  ->orWhere('visibility', 'public'); // Nếu không phải chủ thì chỉ thấy public
+        })
+        ->selectRaw('*, (author_id = ?) as is_owner', [$ownerId])
+        ->orderBy('created_at', 'desc')
+        ->paginate($limit)
+        ->toArray();
+}
 }

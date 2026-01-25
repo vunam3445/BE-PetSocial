@@ -8,6 +8,8 @@ use App\Notifications\NewPostNotification;
 use App\Notifications\NewPostOfPetNotification;
 use Illuminate\Support\Facades\Auth;
 use App\Notifications\PostDeletedNotification;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 
 class PostObserver
 {
@@ -37,21 +39,23 @@ class PostObserver
             }
         }
         if ($post->shared_post_id) {
-        $originalPost = $post->sharedPost;
-        if ($originalPost) {
-            \App\Models\UserInteraction::create([
-                'interaction_id' => \Illuminate\Support\Str::uuid(),
-                'user_id' => $post->author_id,
-                'post_id' => $post->shared_post_id, // Lưu ID bài gốc
-                'action_type' => 'share',
-                'weight' => 5,
-                'metadata' => [
-                    'tags' => $originalPost->tags->pluck('name')->toArray(),
-                    'caption' => $post->caption // Caption của người share
-                ],
-            ]);
+            $originalPost = $post->sharedPost;
+            if ($originalPost) {
+                \App\Models\UserInteraction::create([
+                    'interaction_id' => \Illuminate\Support\Str::uuid(),
+                    'user_id' => $post->author_id,
+                    'post_id' => $post->shared_post_id, // Lưu ID bài gốc
+                    'action_type' => 'share',
+                    'weight' => 5,
+                    'metadata' => [
+                        'tags' => $originalPost->tags->pluck('name')->toArray(),
+                        'caption' => $post->caption // Caption của người share
+                    ],
+                ]);
+            }
+            
         }
-    }
+      
     }
 
     /**

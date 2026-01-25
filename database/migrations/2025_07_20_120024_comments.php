@@ -12,22 +12,23 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('comments', function (Blueprint $table) {
-    $table->uuid('comment_id')->primary();
-    $table->uuid('post_id');
-    $table->uuid('user_id');
-    $table->uuid('parent_id')->nullable(); 
-    $table->text('content');
-    $table->timestamps();
+            $table->uuid('comment_id')->primary();
+            $table->uuid('post_id');
+            $table->uuid('user_id');
+            $table->uuid('parent_id')->nullable();
+            $table->text('content');
+            $table->timestamps();
 
-    $table->foreign('post_id')->references('post_id')->on('posts')->onDelete('cascade');
-    $table->foreign('user_id')->references('user_id')->on('users');
-});
+            $table->foreign('post_id')->references('post_id')->on('posts')->onDelete('cascade');
+            $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
+            $table->index('post_id');
+            $table->index('parent_id');
+        });
 
-// 👇 Tách riêng self-reference cho chắc chắn
-Schema::table('comments', function (Blueprint $table) {
-    $table->foreign('parent_id')->references('comment_id')->on('comments')->onDelete('cascade');
-});
-
+        
+        Schema::table('comments', function (Blueprint $table) {
+            $table->foreign('parent_id')->references('comment_id')->on('comments')->onDelete('cascade');
+        });
     }
 
     /**

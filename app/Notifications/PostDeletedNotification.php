@@ -37,7 +37,7 @@ class PostDeletedNotification extends Notification implements ShouldQueue
             'author_name' => $this->group->name ?? 'Hệ thống',
             'avatar_url'  => $this->group->avatar_url ?? null,
             'message'     => "Bài viết của bạn đã bị xóa do {$this->reason}.",
-            'target_url'  => $this->group ? "/groups/{$this->group->group_id}" : "/home",
+            'target_url'  => $this->group ? "/groups/{$this->group->group_id}" : "/",
             'type'        => 'post_deleted_violation',
             'created_at'  => now()->toDateTimeString(),
         ];

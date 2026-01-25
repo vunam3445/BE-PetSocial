@@ -19,7 +19,7 @@ return new class extends Migration
             $table->unique(['user_id', 'tag_name']);
             $table->timestamps();
 
-            $table->foreign('user_id')->references('user_id')->on('users');
+            $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
             $table->index(['user_id', 'score']); // Để tìm tag điểm cao nhanh nhất
         });
     }

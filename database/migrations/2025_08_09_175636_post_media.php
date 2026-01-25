@@ -20,6 +20,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->foreign('post_id')->references('post_id')->on('posts')->onDelete('cascade');
+            $table->index(['post_id', 'order']); // Load media theo đúng thứ tự
         });
     }
 
@@ -28,6 +29,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        //
+        Schema::disableForeignKeyConstraints();
+        Schema::dropIfExists('post_media');
+        Schema::enableForeignKeyConstraints();
     }
 };

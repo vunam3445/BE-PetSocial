@@ -91,7 +91,25 @@ class PostService
                     }
                 }
             }
+            $postTags = $post->tags()->pluck('name')->toArray();
 
+            \App\Models\UserInteraction::create([
+                'interaction_id' => Str::uuid(),
+                'user_id'        => $post->author_id,
+                'post_id'        => $post->post_id,
+                'action_type'    => 'create_post',
+                'weight'         => 10,
+                'metadata'       => [
+                    'tags'     => $postTags,
+                    'pet_type' => $post->pet?->type,
+                    'caption'  => Str::limit($post->caption, 100)
+                ],
+            ]);
+            if ($post->status === 'pending' && !empty($post->group_id)) {
+                // Load quan hệ group để lấy admin_id và tên group
+                $post->load('group');
+                $this->sendPendingPostNotification($post);
+            }
             return $post
                 ->load([
                     'media',
@@ -100,7 +118,8 @@ class PostService
                     'sharedPost.media',
                     'sharedPost.author:user_id,name,avatar_url',
                     'sharedPost.tags',
-                    'pet:pet_id,name,avatar_url'
+                    'pet:pet_id,name,avatar_url',
+                    'group:group_id,name,avatar_url'
                 ])
                 ->loadCount(['likes', 'comments']);
         });
@@ -119,12 +138,13 @@ class PostService
         $query = $this->postRepository
             ->getQuery()
             ->with(array_merge($relations, ['sharedPost.media', 'sharedPost.author:user_id,name,avatar_url', 'sharedPost.tags']));
-        $query->whereNull('group_id');
+        $query->whereNull('group_id')
+            ->whereNull('pet_id');
         if (!empty($withCount)) {
             $query->withCount($withCount);
         }
 
-        // ✅ thêm flag is_liked
+        // thêm flag is_liked
         $userId = Auth::id();
         if ($userId) {
             $query->withCount([
@@ -234,14 +254,18 @@ class PostService
                 'status'     => $status
             ]);
 
-            return $post->load([
+            $post->load([
                 'media',
                 'author:user_id,name,avatar_url',
                 'tags',
                 'sharedPost.media',
                 'sharedPost.author:user_id,name,avatar_url',
-                'sharedPost.tags'
+                'sharedPost.tags',
+                'group:group_id,name',
+                'pet:pet_id,name,avatar_url'
             ])->loadCount(['likes', 'comments']);
+            $post->setAttribute('is_owner', true);
+            return $post;
         });
     }
     public function deletePost(string $id)
@@ -273,7 +297,7 @@ class PostService
     public function getAllPosts(
         array $relations = [],
         array $withCount = [],
-        int $limit = 15
+        int $limit = 20
     ) {
         return $this->postRepository->getAllPosts($relations, $withCount, $limit);
     }
@@ -284,5 +308,83 @@ class PostService
     public function getPostsPendingOfGroup(string $groupId, array $relations = [], array $withCount = [], int $limit = 20)
     {
         return $this->postRepository->getPostsPendingOfGroup($groupId, $relations, $withCount, $limit);
+    }
+    public function resetSeed()
+    {
+        return $this->postRepository->resetSeed();
+    }
+
+    public function sendPendingPostNotification($post)
+    {
+        $group = $post->group;
+        if (!$group) return;
+
+        // Lấy admin (chủ nhóm)
+        $adminId = $group->created_by;
+
+        // 1. Tìm thông báo cũ chưa đọc theo chuẩn JSON của bảng notifications
+        // Lưu ý: data là kiểu TEXT/JSON nên cần trỏ vào đúng key
+        $existingNotification = DB::table('notifications')
+            ->where('notifiable_id', $adminId)
+            ->where('notifiable_type', 'App\Models\User')
+            ->whereNull('read_at')
+            // Ép kiểu data sang jsonb để sử dụng toán tử ->>
+            ->whereRaw('CAST(data AS jsonb)->>\'type\' = ?', ['POST_PENDING_AGGREGATED'])
+            ->whereRaw('CAST(data AS jsonb)->>\'group_id\' = ?', [$group->group_id])
+            ->first();
+        if ($existingNotification) {
+            // 2. Cập nhật cộng dồn dữ liệu
+            $payload = json_decode($existingNotification->data, true);
+            $count = ($payload['pending_count'] ?? 1) + 1;
+
+            $payload['pending_count'] = $count;
+            $payload['message'] = "Có {$count} bài viết mới đang chờ duyệt trong nhóm {$group->name}.";
+            $payload['updated_at'] = now()->toDateTimeString();
+
+            DB::table('notifications')
+                ->where('id', $existingNotification->id)
+                ->update([
+                    'data' => json_encode($payload),
+                    'updated_at' => now()
+                ]);
+
+            $notificationId = $existingNotification->id;
+        } else {
+            // 3. Tạo mới hoàn toàn bản ghi sử dụng UUID
+            $notificationId = (string) \Illuminate\Support\Str::uuid();
+            $payload = [
+                'type'          => 'POST_PENDING_AGGREGATED',
+                'group_id'      => $group->group_id,
+                'group_name'    => $group->name,
+                'pending_count' => 1,
+                'message'       => "Có 1 bài viết mới đang chờ duyệt trong nhóm {$group->name}.",
+                'avatar_url'    => $group->avatar_url,
+                'target_url'    => "/groups/{$group->group_id}",
+                'created_at'    => now()->toDateTimeString(),
+            ];
+
+            DB::table('notifications')->insert([
+                'id'              => $notificationId,
+                'type'            => 'App\Notifications\PendingPostNotification',
+                'notifiable_type' => 'App\Models\User',
+                'notifiable_id'   => $adminId,
+                'data'            => json_encode($payload),
+                'read_at'         => null,
+                'created_at'      => now(),
+                'updated_at'      => now(),
+            ]);
+        }
+
+        // 4. Payload gửi qua Socket (để React render ngay lập tức)
+        $fullPayload = [
+            'id'            => $notificationId,
+            'type'          => 'App\Notifications\PendingPostNotification',
+            'notifiable_id' => $adminId,
+            'data'          => $payload,
+            'read_at'       => null,
+            'created_at'    => now()->toDateTimeString(),
+        ];
+
+        \App\Jobs\SendSocketNotificationJob::dispatch($adminId, $fullPayload);
     }
 }

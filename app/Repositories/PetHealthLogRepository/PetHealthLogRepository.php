@@ -9,13 +9,14 @@ class PetHealthLogRepository extends BaseRepository implements PetHealthLogInter
         parent::__construct($model);
     }
     
-    public function getLogsByPetId(string $petId)
-    {
-        return $this->model
-            ->where('pet_id', $petId)
-            ->orderBy('recorded_at', 'desc')
-            ->with('category')
-            ->get();
-    }
+public function getLogsByPetId(string $petId)
+{
+    return $this->model
+        ->where('pet_id', $petId)
+        ->with(['healthLogs' => function($query) {
+            $query->orderBy('created_at', 'desc'); // Sắp xếp log bên trong category
+        }])
+        ->get();
+}
   
 }
