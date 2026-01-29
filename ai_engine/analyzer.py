@@ -117,7 +117,7 @@ def run_ai_analyzer():
         user_tags = df_raw['tag_name'].unique().tolist()
         u_embs = model.encode([segment_hashtag(t) for t in user_tags], convert_to_tensor=True)
         s_embs = model.encode([segment_hashtag(t) for t in all_system_tags], convert_to_tensor=True)
-        
+        #góc của 2 vector càng nhỏ thì độ tương đồng càng lớn
         cosine_scores = util.cos_sim(u_embs, s_embs)
 
         # 4. TẠO PROFILE MỚI

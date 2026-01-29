@@ -38,30 +38,43 @@ class ConversationService
         // 1. Lấy tin nhắn mới nhất
         $latestMessage = $this->messageRepo->getLatestMessage($conv->conversation_id);
 
-        // 2. Xác định trạng thái unread/read (Dấu chấm xanh)
+        // 2. Lấy các thông số cần thiết
         $lastReadAt = $conv->last_read_at;
         $latestMsgAt = $conv->latest_message_at;
-        $uiStatus = ($latestMsgAt && (!$lastReadAt || $lastReadAt < $latestMsgAt)) ? 'unread' : 'read';
+        $sendersCount = (int) $conv->senders_count;
+        $isMeLastSender = $latestMessage && $latestMessage->sender_id === $userId;
 
-        // 3. Xử lý participants: CHỈ TRẢ VỀ NGƯỜI KIA NẾU LÀ PRIVATE CHAT
+        // 3. XÁC ĐỊNH TRẠNG THÁI UNREAD/READ
         if (!$conv->is_group) {
-            // Lọc bỏ chính mình ra khỏi danh sách
+            // Chat 1-1: 
+            // CHỈ UNREAD khi: Có ít nhất 2 người nhắn VÀ người cuối không phải mình VÀ tin nhắn mới hơn lúc đọc cuối
+            if ($sendersCount >= 2) {
+                $uiStatus = 'read';
+            } else{
+                $uiStatus = 'unread';
+            }
+        } else {
+            // Chat nhóm:
+            // CHỈ UNREAD khi: Người cuối không phải mình VÀ có tin mới sau lần đọc cuối
+            if (!$isMeLastSender) {
+                $uiStatus = ($latestMsgAt && (!$lastReadAt || $lastReadAt < $latestMsgAt)) ? 'unread' : 'read';
+            } else {
+                $uiStatus = 'read';
+            }
+        }
+
+        // 4. Xử lý participants cho Private Chat (Giữ nguyên code cũ của bạn)
+        if (!$conv->is_group) {
             $otherUser = $conv->participants->filter(function ($p) use ($userId) {
                 return $p->user_id !== $userId;
             });
-            // Cập nhật lại danh sách chỉ chứa người kia
             $conv->setRelation('participants', $otherUser->values());
-        } else {
-            // Nếu là Group, bạn có thể giữ nguyên hoặc chỉ trả về chính mình tùy logic UI
-            // Ở đây tôi giữ nguyên logic ẩn các trường thừa
         }
 
-        // Clean up dữ liệu participant (ẩn các trường nhạy cảm/thừa)
         $conv->participants->each(function ($p) {
             $p->setVisible(['user_id', 'name', 'avatar_url']);
         });
 
-        // 4. Trả về cấu trúc chuẩn
         return [
             'conversation'   => $conv,
             'latest_message' => $latestMessage,
@@ -71,7 +84,6 @@ class ConversationService
 
     return $conversations;
 }
-
 
 
 
@@ -334,26 +346,33 @@ class ConversationService
     }
 
     public function delete(string $conversationId)
-{
-    return DB::transaction(function () use ($conversationId) {
-        $user = Auth::user(); // Lấy cả object user để lấy tên
-        $conversation = Conversation::with('participants')->findOrFail($conversationId);
+    {
+        return DB::transaction(function () use ($conversationId) {
+            $user = Auth::user(); // Lấy cả object user để lấy tên
+            $conversation = Conversation::with('participants')->findOrFail($conversationId);
 
-        $recipients = $conversation->participants->filter(fn($u) => $u->user_id !== $user->user_id);
+            $recipients = $conversation->participants->filter(fn($u) => $u->user_id !== $user->user_id);
 
-        if ($recipients->isNotEmpty()) {
-            foreach ($recipients as $recipient) {
-                $currentDomain = request()->getSchemeAndHttpHost();
-                $recipient->notify(new ConversationDeletedNotification($conversation, $user->name, $currentDomain));
+            if ($recipients->isNotEmpty()) {
+                foreach ($recipients as $recipient) {
+                    $currentDomain = request()->getSchemeAndHttpHost();
+                    $recipient->notify(new ConversationDeletedNotification($conversation, $user->name, $currentDomain));
+                }
             }
-        }
 
-        $conversation->delete();
+            $conversation->delete();
 
-        return [
-            'status' => 'success',
-            'message' => $conversation->is_group ? 'Đã giải tán nhóm.' : 'Đã xóa hội thoại.'
-        ];
-    });
-}
+            return [
+                'status' => 'success',
+                'message' => $conversation->is_group ? 'Đã giải tán nhóm.' : 'Đã xóa hội thoại.'
+            ];
+        });
+    }
+    public function getUnreadCount()
+    {
+        $userId = Auth::id();
+        if (!$userId) return 0;
+
+        return $this->conversationRepo->getUnreadConversationsCount($userId);
+    }
 }

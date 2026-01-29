@@ -87,7 +87,7 @@ class PostController extends Controller
     public function getAllPosts()
     {
 
-        $posts = $this->postService->getAllPosts(['media', 'author:user_id,name,avatar_url', 'pet:pet_id,name,avatar_url', 'group:group_id,name'], ['likes'], 20);
+        $posts = $this->postService->getAllPosts(['media', 'author:user_id,name,avatar_url', 'pet:pet_id,name,avatar_url', 'group:group_id,name'], ['likes'], 15);
 
         return response()->json([
             'posts' => $posts

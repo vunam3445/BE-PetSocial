@@ -37,11 +37,11 @@ class PetHealthLogController extends Controller
             'pet_id'      => 'required',
             'category_id' => 'required',
             'title'       => 'required|string',
-            'image_file'  => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5096',
+            'image_file'  => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5096',
         ], $messages);
         $pet = Pet::findOrFail($request->pet_id);
 
-        // ✅ 2. Gọi Policy: Bạn có phải chủ của Pet này không?
+        //  2. Gọi Policy: Bạn có phải chủ của Pet này không?
         $this->authorize('create', [PetHealthLogModel::class, $pet]);
         $data = $request->all();
 

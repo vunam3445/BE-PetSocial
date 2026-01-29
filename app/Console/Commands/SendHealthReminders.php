@@ -15,7 +15,7 @@ class SendHealthReminders extends Command
     protected $signature = 'app:send-health-reminders';
     protected $description = 'Kiểm tra và gửi thông báo nhắc nhở sức khỏe thú cưng trước 2 ngày';
 
-    public function handle()
+  public function handle()
     {
         $this->info('Đang kiểm tra lịch nhắc nhở sức khỏe...');
 
@@ -37,13 +37,20 @@ class SendHealthReminders extends Command
                 $lastDate = Carbon::parse($log->last_recorded);
                 $interval = $category->interval_days;
 
-                // 3. Tính ngày đến hạn và ngày cần gửi thông báo
+                // 3. Tính ngày đến hạn
                 $dueDate = $lastDate->copy()->addDays($interval);
-                $notificationDate = $dueDate->copy()->subDays(2); // Thông báo trước 2 ngày
+                
+                $today = Carbon::now()->startOfDay();
+                $notificationDateBefore2Days = $dueDate->copy()->subDays(2)->startOfDay();
+                $actualDueDate = $dueDate->copy()->startOfDay();
 
-                // 4. Kiểm tra nếu hôm nay là ngày cần thông báo
-                if (Carbon::now()->isSameDay($notificationDate)) {
-                    $this->sendNotification($log->pet_id, $category, $dueDate);
+                // 4. Kiểm tra: Nếu là hôm nay là TRƯỚC 2 NGÀY hoặc ĐÚNG NGÀY đến hạn
+                if ($today->isSameDay($notificationDateBefore2Days) || $today->isSameDay($actualDueDate)) {
+                    
+                    // Xác định loại thông báo để truyền vào (tùy chọn nếu bạn muốn đổi nội dung tin nhắn)
+                    $type = $today->isSameDay($actualDueDate) ? 'đúng hạn' : 'trước 2 ngày';
+                    
+                    $this->sendNotification($log->pet_id, $category, $dueDate, $type);
                 }
             }
         }
@@ -51,27 +58,25 @@ class SendHealthReminders extends Command
         $this->info('Hoàn thành gửi thông báo.');
     }
 
-    protected function sendNotification($petId, $category, $dueDate)
+    protected function sendNotification($petId, $category, $dueDate, $type)
     {
-        // 1. Lấy thông tin Pet kèm theo chủ sở hữu (User)
         $pet = Pet::with('user')->find($petId);
 
         if ($pet && $pet->user) {
             $user = $pet->user;
 
-            // 2. Kiểm tra tránh gửi trùng (giới hạn 1 thông báo/loại/ngày)
-            // 2. Kiểm tra tránh gửi trùng (ép kiểu text sang jsonb để truy vấn)
+            // Kiểm tra tránh gửi trùng trong cùng một ngày
             $alreadyNotified = $user->notifications()
-                ->whereRaw("data::jsonb->>'pet_id' = ?", [$petId])
-                ->whereRaw("data::jsonb->>'category_id' = ?", [$category->category_id])
+                ->whereRaw("data::jsonb->>'pet_id' = ?", [(string)$petId])
+                ->whereRaw("data::jsonb->>'category_id' = ?", [(string)$category->category_id])
                 ->where('created_at', '>=', now()->startOfDay())
                 ->exists();
 
             if (!$alreadyNotified) {
-                // 3. Gửi thông báo bằng class Notification đã cấu hình
+                // Gửi thông báo
                 $user->notify(new HealthReminderNotification($pet, $category, $dueDate));
 
-                $this->line("Đã gửi thông báo cho bé {$pet->name} tới user {$user->name}");
+                $this->line("Đã gửi thông báo ({$type}) cho bé {$pet->name} tới user {$user->name}");
             }
         }
     }

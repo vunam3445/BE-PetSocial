@@ -32,7 +32,7 @@ class MessageController extends Controller
         
         $request->validate([
             'content' => 'nullable|string',
-            'media' => 'nullable|file|mimes:jpg,jpeg,png,gif,mp4,mov,avi|max:20480',
+            'media' => 'nullable|file|mimes:jpg,jpeg,png,gif,mp4,mov,avi,webp|max:20480',
             'reply_to_id' => 'nullable|uuid',
         ], [
             // Tùy chỉnh tin nhắn lỗi tiếng Việt

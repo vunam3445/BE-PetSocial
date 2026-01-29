@@ -63,8 +63,7 @@ class ConversationController extends Controller
     public function update(string $conversationId)
     {
         $userId = Auth::id();
-        $this->conversationService->markAsRead($userId, $conversationId);
-
+        $this->conversationService->markAsRead($conversationId, $userId);
         return response()->json(['message' => 'Marked as read']);
     }
 
@@ -236,5 +235,9 @@ class ConversationController extends Controller
         $res = $this->conversationService->delete($conversationId);
 
         return response()->json($res);
+    }
+    public function unReadConversationsCount()
+    {
+        return $this->conversationService->getUnreadCount();
     }
 }
