@@ -125,6 +125,7 @@ Route::middleware('auth:api')->group(function () {
     Route::put('/conversations/{conversationId}/updateInfo',[ConversationController::class,'updateConversation']);
     Route::put('/conversations/{conversationId}/changeRole/users/{targetId}',[ConversationController::class,'changeRole']);
     Route::delete('/conversations/{conversationId}/delete',[ConversationController::class,'delete']);
+    Route::get('/conversations/unread',[ConversationController::class, 'unReadConversationsCount']);
     Route::apiResource('conversations.messages', MessageController::class)
         ->shallow();
     // shallow() cho phép gọi messages/:id thay vì conversations/:conversationId/messages/:id

@@ -137,7 +137,7 @@ class PostService
         $ownerId = Auth::id();
         $query = $this->postRepository
             ->getQuery()
-            ->with(array_merge($relations, ['sharedPost.media', 'sharedPost.author:user_id,name,avatar_url', 'sharedPost.tags']));
+            ->with(array_merge($relations, ['sharedPost.media', 'sharedPost.author:user_id,name,avatar_url', 'sharedPost.tags','sharedPost.pet:pet_id,name,avatar_url']));
         $query->whereNull('group_id')
             ->whereNull('pet_id');
         if (!empty($withCount)) {
@@ -277,7 +277,7 @@ class PostService
 
         $currentUserId = Auth::id();
 
-        // ✅ Chỉ owner mới được xoá
+        //  Chỉ owner mới được xoá
         if ((string)$post->author_id !== (string)$currentUserId) {
             throw new AccessDeniedHttpException("You do not have permission to delete this post");
         }

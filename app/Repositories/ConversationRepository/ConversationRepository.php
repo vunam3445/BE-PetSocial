@@ -33,7 +33,7 @@ class ConversationRepository extends BaseRepository implements ConversationInter
             }]);
         // Subquery lấy thời gian tin nhắn mới nhất
         $latestMessageSql = "(SELECT created_at FROM messages WHERE messages.conversation_id = conversations.conversation_id ORDER BY created_at DESC LIMIT 1)";
-
+        $sendersCountSql = "(SELECT COUNT(DISTINCT sender_id) FROM messages WHERE messages.conversation_id = conversations.conversation_id)";
         // Join lấy dữ liệu pivot của CHÍNH user đang gọi để lọc/sort
         $query->join('conversation_participants', 'conversations.conversation_id', '=', 'conversation_participants.conversation_id')
             ->where('conversation_participants.user_id', $userId)
@@ -43,7 +43,7 @@ class ConversationRepository extends BaseRepository implements ConversationInter
                 'conversation_participants.last_reply_at',
                 'conversation_participants.role as my_role' // Lấy role của tôi ra ngoài để dễ dùng
             );
-
+        $query->selectSub($sendersCountSql, 'senders_count'); // Thêm cột này vào kết quả
         $query->selectSub($latestMessageSql, 'latest_message_at');
 
         if ($filterStatus === 'unread') {
@@ -106,7 +106,10 @@ class ConversationRepository extends BaseRepository implements ConversationInter
         return DB::table('conversation_participants')
             ->where('conversation_id', $conversationId)
             ->where('user_id', $userId)
-            ->update($data);
+            ->update([
+            'last_read_at' => now(), // Đảm bảo dùng helper now() của Laravel để lấy giờ server
+            'updated_at' => now()
+        ]);
     }
     public function findPrivateConversation(string $userId, string $otherUserId)
     {
@@ -265,4 +268,42 @@ class ConversationRepository extends BaseRepository implements ConversationInter
             ];
         });
     }
+    public function getUnreadConversationsCount(string $userId)
+{
+    return $this->model
+        ->whereHas('participants', function ($query) use ($userId) {
+            $query->where('conversation_participants.user_id', $userId)
+                ->where(function ($q) use ($userId) {
+                    
+                    // Điều kiện chung: Phải tồn tại tin nhắn của NGƯỜI KHÁC gửi sau lần mình đọc cuối
+                    $unreadCondition = function ($sub) use ($userId) {
+                        $sub->select(DB::raw(1))
+                            ->from('messages')
+                            ->whereColumn('messages.conversation_id', 'conversations.conversation_id')
+                            ->where('messages.sender_id', '!=', $userId) // QUAN TRỌNG: Không đếm tin của chính mình
+                            ->where(function ($timeCheck) {
+                                // So sánh thời gian tin nhắn > thời gian đọc cuối
+                                $timeCheck->whereColumn('messages.created_at', '>', 'conversation_participants.last_read_at')
+                                          ->orWhereNull('conversation_participants.last_read_at');
+                            });
+                    };
+
+                    // --- TRƯỜNG HỢP 1: CHAT NHÓM ---
+                    $q->where(function ($groupQuery) use ($unreadCondition) {
+                        $groupQuery->where('conversations.is_group', true)
+                                   ->whereExists($unreadCondition);
+                    })
+                    
+                    // --- TRƯỜNG HỢP 2: CHAT 1-1 ---
+                    ->orWhere(function ($privateQuery) use ($unreadCondition) {
+                        $privateQuery->where('conversations.is_group', false)
+                            // Phải có ít nhất 2 người nhắn tin (đã tương tác)
+                            ->whereRaw("(SELECT COUNT(DISTINCT sender_id) FROM messages WHERE messages.conversation_id = conversations.conversation_id) >= 2")
+                            // Và có tin nhắn của người kia chưa xem
+                            ->whereExists($unreadCondition);
+                    });
+                });
+        })
+        ->count();
+}
 }

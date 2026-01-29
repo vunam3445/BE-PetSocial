@@ -60,9 +60,11 @@ class GroupRepository  implements GroupInterface
         // Với quan hệ BelongsToMany, paginate sẽ tự xử lý
         return $user->groupMemberships()
             ->wherePivot('role', 'member')
-            ->orderBy('group_members.created_at', 'desc')
+            ->orderBy('group_members.joined_at', 'desc')
             ->paginate($perPage)
-            ->makeHidden('pivot');
+            ->through(function ($group) {
+            return $group->makeHidden('pivot');
+        });
     }
     public function addMemberToGroup(string $groupId, array $userIds, string $role): void
     {
